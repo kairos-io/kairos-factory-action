@@ -2,6 +2,12 @@ name: 'Kairos Factory Action'
 description: 'Build Kairos immutable images and artifacts within your release pipeline'
 
 inputs:
+  # Working directory
+  workdir:
+    description: 'Working directory where the Kairos source lives (must contain images/)'
+    required: false
+    default: '.'
+  
   # Core build parameters
   base_image:
     description: 'Base image to use for building Kairos (e.g., ubuntu:24.04, opensuse/leap:15.6)'
@@ -101,6 +107,20 @@ runs:
     - name: Validate inputs
       shell: bash
       run: |
+        # Change to working directory
+        echo "📁 Changing to working directory: ${{ inputs.workdir }}"
+        cd "${{ inputs.workdir }}"
+        
+        # Validate that images/ directory exists
+        if [ ! -d "images" ]; then
+          echo "❌ Error: images/ directory not found in ${{ inputs.workdir }}"
+          echo "   Current directory: $(pwd)"
+          echo "   Directory contents: $(ls -la)"
+          exit 1
+        fi
+        
+        echo "✅ Found images/ directory in ${{ inputs.workdir }}"
+        
         # Validate required inputs
         if [[ -z "${{ inputs.version }}" ]]; then
           echo "❌ Error: version is required"
@@ -415,5 +435,5 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: kairos-artifacts-${{ steps.setup.outputs.flavor }}-${{ steps.setup.outputs.flavor_release }}-${{ steps.setup.outputs.variant }}-${{ inputs.arch }}-${{ inputs.model }}
-        path: artifacts/
+        path: ${{ inputs.workdir }}/artifacts/
         if-no-files-found: warn 

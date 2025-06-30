@@ -50,6 +50,12 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
 
 ## 📋 Inputs
 
+### Working Directory
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `workdir` | Working directory where the Kairos source lives (must contain images/) | ❌ | `.` |
+
 ### Core Build Parameters
 
 | Input | Description | Required | Default |
@@ -110,6 +116,21 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
     base_image: "ubuntu:24.04"
     model: "generic"
     artifacts: "iso"
+    summary_artifacts: true
+```
+
+### Building from Caller Repository
+```yaml
+# Use this when calling from the Kairos main repository or any repo with images/ directory
+- name: Build Kairos image from source
+  uses: kairos-io/kairos-factory-action@v1
+  with:
+    workdir: "."  # Points to the caller repository root (default)
+    version: "auto"
+    base_image: "ubuntu:24.04"
+    model: "generic"
+    arch: "amd64"
+    artifacts: "iso,raw"
     summary_artifacts: true
 ```
 

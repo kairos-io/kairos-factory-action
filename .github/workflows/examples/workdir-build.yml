@@ -1,4 +1,4 @@
-name: Basic Kairos Build
+name: Workdir Kairos Build Example
 
 on:
   push:
@@ -14,12 +14,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Build Kairos image
+      - name: Build Kairos image from workdir
         uses: ./
         with:
-          workdir: "."  # Default working directory
-          version: "1.0.0"
+          workdir: "."  # Explicitly specify the working directory
+          version: "auto"
           base_image: "ubuntu:24.04"
           model: "generic"
+          arch: "amd64"
           artifacts: "iso"
           summary_artifacts: true 
