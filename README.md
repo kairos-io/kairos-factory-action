@@ -137,11 +137,11 @@ Both approaches support the same functionality. The reusable workflow automatica
 
 ## 📋 Inputs
 
-### Working Directory
+### Dockerfile Path
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `workdir` | Working directory where the Kairos source lives (must contain images/) | ❌ | `.` |
+| `dockerfile_path` | Path to the Dockerfile to use for building | ❌ | `images/Dockerfile` |
 
 ### Core Build Parameters
 
@@ -207,19 +207,21 @@ jobs:
       summary_artifacts: true
 ```
 
-### Building from Caller Repository
+### Building with Custom Dockerfile
 ```yaml
-# Use this when calling from the Kairos main repository or any repo with images/ directory
-- name: Build Kairos image from source
-  uses: kairos-io/kairos-factory-action@v1
-  with:
-    workdir: "."  # Points to the caller repository root (default)
-    version: "auto"
-    base_image: "ubuntu:24.04"
-    model: "generic"
-    arch: "amd64"
-    artifacts: "iso,raw"
-    summary_artifacts: true
+# Use this when you have a custom Dockerfile path
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      dockerfile_path: "custom/path/Dockerfile"  # Custom Dockerfile location
+      version: "auto"
+      base_image: "ubuntu:24.04"
+      model: "generic"
+      arch: "amd64"
+      iso: true
+      raw: true
+      summary_artifacts: true
 ```
 
 ### Multi-Architecture Release (Reusable Workflow)

@@ -3,10 +3,10 @@ name: Build Kairos Image
 on:
   workflow_call:
     inputs:
-      # Working directory
-      workdir:
+      # Dockerfile path
+      dockerfile_path:
         type: string
-        default: "."
+        default: "images/Dockerfile"
       
       # Core build parameters
       base_image:
@@ -109,27 +109,26 @@ on:
 
 jobs:
   build:
+    name: ${{ inputs.base_image }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: '0'
 
       - name: Validate inputs
         shell: bash
         run: |
-          # Change to working directory
-          echo "📁 Changing to working directory: ${{ inputs.workdir }}"
-          cd "${{ inputs.workdir }}"
-          
-          # Validate that images/ directory exists
-          if [ ! -d "images" ]; then
-            echo "❌ Error: images/ directory not found in ${{ inputs.workdir }}"
+          # Validate that Dockerfile exists
+          if [ ! -f "${{ inputs.dockerfile_path }}" ]; then
+            echo "❌ Error: Dockerfile not found at ${{ inputs.dockerfile_path }}"
             echo "   Current directory: $(pwd)"
             echo "   Directory contents: $(ls -la)"
             exit 1
           fi
           
-          echo "✅ Found images/ directory in ${{ inputs.workdir }}"
+          echo "✅ Found Dockerfile at ${{ inputs.dockerfile_path }}"
           
           # Validate required inputs
           if [[ -z "${{ inputs.version }}" ]]; then
@@ -337,7 +336,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: images/Dockerfile
+          file: ${{ inputs.dockerfile_path }}
           platforms: linux/${{ inputs.arch }}
           push: ${{ inputs.push_repository != '' }}
           load: ${{ inputs.push_repository == '' }}
@@ -518,5 +517,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kairos-artifacts-${{ steps.setup.outputs.flavor }}-${{ steps.setup.outputs.flavor_release }}-${{ steps.setup.outputs.variant }}-${{ inputs.arch }}-${{ inputs.model }}
-          path: ${{ inputs.workdir }}/artifacts/
+          path: artifacts/
           if-no-files-found: warn 

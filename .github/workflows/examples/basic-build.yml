@@ -10,7 +10,7 @@ jobs:
   build:
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     with:
-      workdir: "."  # Default working directory
+      dockerfile_path: "images/Dockerfile"  # Default Dockerfile path
       version: "1.0.0"
       base_image: "ubuntu:24.04"
       model: "generic"
