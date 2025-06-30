@@ -1,0 +1,112 @@
+name: Build Kairos Image
+
+on:
+  workflow_call:
+    inputs:
+      base_image:
+        type: string
+        default: "ubuntu:24.04"
+      model:
+        type: string
+        default: "generic"
+      arch:
+        type: string
+        default: "amd64"
+      kubernetes_distro:
+        type: string
+        required: false
+      kubernetes_version:
+        type: string
+        default: "auto"
+      version:
+        type: string
+        required: true
+      trusted_boot:
+        type: boolean
+        default: false
+      artifacts:
+        type: string
+        default: "iso"
+      output_format:
+        type: string
+        default: "auto"
+      security_checks:
+        type: string
+        default: ""
+      sign_artifacts:
+        type: boolean
+        default: false
+      summary_artifacts:
+        type: boolean
+        default: false
+      push_repository:
+        type: string
+        required: false
+      push_repository_username:
+        type: string
+        required: false
+      push_repository_password:
+        type: string
+        required: false
+      auroraboot_version:
+        type: string
+        default: "latest"
+      raw:
+        type: boolean
+        default: false
+      iso:
+        type: boolean
+        default: false
+      tar:
+        type: boolean
+        default: false
+      gce:
+        type: boolean
+        default: false
+      vhd:
+        type: boolean
+        default: false
+      cosign:
+        type: boolean
+        default: false
+      grype:
+        type: boolean
+        default: false
+      workdir:
+        type: string
+        default: "."
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Run Kairos Factory Action
+        uses: ./action.yml
+        with:
+          base_image: ${{ inputs.base_image }}
+          model: ${{ inputs.model }}
+          arch: ${{ inputs.arch }}
+          kubernetes_distro: ${{ inputs.kubernetes_distro }}
+          kubernetes_version: ${{ inputs.kubernetes_version }}
+          version: ${{ inputs.version }}
+          trusted_boot: ${{ inputs.trusted_boot }}
+          artifacts: ${{ inputs.artifacts }}
+          output_format: ${{ inputs.output_format }}
+          security_checks: ${{ inputs.security_checks }}
+          sign_artifacts: ${{ inputs.sign_artifacts }}
+          summary_artifacts: ${{ inputs.summary_artifacts }}
+          push_repository: ${{ inputs.push_repository }}
+          push_repository_username: ${{ inputs.push_repository_username }}
+          push_repository_password: ${{ inputs.push_repository_password }}
+          auroraboot_version: ${{ inputs.auroraboot_version }}
+          raw: ${{ inputs.raw }}
+          iso: ${{ inputs.iso }}
+          tar: ${{ inputs.tar }}
+          gce: ${{ inputs.gce }}
+          vhd: ${{ inputs.vhd }}
+          cosign: ${{ inputs.cosign }}
+          grype: ${{ inputs.grype }}
+          workdir: ${{ inputs.workdir }} 

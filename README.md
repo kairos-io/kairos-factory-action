@@ -48,6 +48,66 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
     sign_artifacts: true
 ```
 
+## 🏗️ Dual-Structure Pattern
+
+This action follows a dual-structure pattern that provides flexibility for different use cases:
+
+### Option 1: Reusable Workflow (Recommended for Consumers)
+
+Use the reusable workflow for better GitHub UI visibility and simpler configuration:
+
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "v1.0.0"
+      iso: true
+      summary_artifacts: true
+      push_repository: "ghcr.io/user/repo"
+      push_repository_username: ${{ secrets.GITHUB_TOKEN }}
+      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
+
+**Benefits:**
+- ✅ Expanded step visibility in GitHub UI
+- ✅ Marketplace publishing support
+- ✅ Boolean inputs for individual artifact types and security checks
+- ✅ Simplified configuration
+
+### Option 2: Composite Action (Advanced Use Cases)
+
+Use the composite action directly for maximum control:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: kairos-io/kairos-factory-action@v1
+        with:
+          version: "v1.0.0"
+          artifacts: "iso,raw"
+          security_checks: "grype,trivy"
+          sign_artifacts: true
+```
+
+**Benefits:**
+- ✅ Direct control over all inputs
+- ✅ Comma-separated lists for artifacts and security checks
+- ✅ Advanced customization options
+
+### Input Compatibility
+
+Both approaches support the same functionality. The reusable workflow automatically converts boolean inputs to the appropriate format for the composite action:
+
+| Reusable Workflow | Composite Action | Description |
+|-------------------|------------------|-------------|
+| `iso: true` | `artifacts: "iso"` | Generate ISO artifact |
+| `raw: true, iso: true` | `artifacts: "iso,raw"` | Generate multiple artifacts |
+| `cosign: true` | `sign_artifacts: true` | Sign artifacts with cosign |
+| `grype: true` | `security_checks: "grype"` | Run Grype security scan |
+
 ## 📋 Inputs
 
 ### Working Directory
@@ -107,7 +167,20 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
 
 ## 🏗️ Examples
 
-### Basic Build
+### Basic Build (Reusable Workflow)
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/build-factory.yaml@main
+    with:
+      version: "1.0.0"
+      base_image: "ubuntu:24.04"
+      model: "generic"
+      iso: true
+      summary_artifacts: true
+```
+
+### Basic Build (Composite Action)
 ```yaml
 - name: Build Kairos image
   uses: kairos-io/kairos-factory-action@v1
@@ -134,7 +207,24 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
     summary_artifacts: true
 ```
 
-### Multi-Architecture Release
+### Multi-Architecture Release (Reusable Workflow)
+```yaml
+jobs:
+  build:
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      arch: ${{ matrix.arch }}
+      kubernetes_distro: "k3s"
+      iso: true
+      push_repository: "ghcr.io/${{ github.repository }}"
+      push_repository_username: ${{ github.actor }}
+      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
+
+### Multi-Architecture Release (Composite Action)
 ```yaml
 jobs:
   build:

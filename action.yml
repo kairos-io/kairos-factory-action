@@ -48,6 +48,32 @@ inputs:
     required: false
     default: 'iso'
   
+  # Individual artifact types (for workflow compatibility)
+  iso:
+    description: 'Generate ISO artifact'
+    required: false
+    default: 'false'
+  
+  raw:
+    description: 'Generate RAW artifact'
+    required: false
+    default: 'false'
+  
+  vhd:
+    description: 'Generate VHD artifact'
+    required: false
+    default: 'false'
+  
+  gce:
+    description: 'Generate GCE artifact'
+    required: false
+    default: 'false'
+  
+  tar:
+    description: 'Generate TAR artifact'
+    required: false
+    default: 'false'
+  
   output_format:
     description: 'Output format override (auto, docker, oci)'
     required: false
@@ -61,6 +87,17 @@ inputs:
   
   sign_artifacts:
     description: 'Sign generated artifacts with cosign'
+    required: false
+    default: 'false'
+  
+  # Individual security checks (for workflow compatibility)
+  cosign:
+    description: 'Sign artifacts with cosign'
+    required: false
+    default: 'false'
+  
+  grype:
+    description: 'Run Grype security scan'
     required: false
     default: 'false'
   
@@ -166,6 +203,82 @@ runs:
         
         echo "✅ Input validation passed"
 
+    - name: Process boolean inputs
+      id: process-inputs
+      shell: bash
+      run: |
+        # Convert boolean artifact inputs to comma-separated list
+        ARTIFACTS_LIST=""
+        if [[ "${{ inputs.iso }}" == "true" ]]; then
+          ARTIFACTS_LIST="${ARTIFACTS_LIST}iso"
+        fi
+        if [[ "${{ inputs.raw }}" == "true" ]]; then
+          if [[ -n "$ARTIFACTS_LIST" ]]; then
+            ARTIFACTS_LIST="${ARTIFACTS_LIST},raw"
+          else
+            ARTIFACTS_LIST="raw"
+          fi
+        fi
+        if [[ "${{ inputs.vhd }}" == "true" ]]; then
+          if [[ -n "$ARTIFACTS_LIST" ]]; then
+            ARTIFACTS_LIST="${ARTIFACTS_LIST},vhd"
+          else
+            ARTIFACTS_LIST="vhd"
+          fi
+        fi
+        if [[ "${{ inputs.gce }}" == "true" ]]; then
+          if [[ -n "$ARTIFACTS_LIST" ]]; then
+            ARTIFACTS_LIST="${ARTIFACTS_LIST},gce"
+          else
+            ARTIFACTS_LIST="gce"
+          fi
+        fi
+        if [[ "${{ inputs.tar }}" == "true" ]]; then
+          if [[ -n "$ARTIFACTS_LIST" ]]; then
+            ARTIFACTS_LIST="${ARTIFACTS_LIST},tar"
+          else
+            ARTIFACTS_LIST="tar"
+          fi
+        fi
+        
+        # Use original artifacts input if no boolean inputs are set
+        if [[ -z "$ARTIFACTS_LIST" ]]; then
+          ARTIFACTS_LIST="${{ inputs.artifacts }}"
+        fi
+        
+        # Convert boolean security inputs to comma-separated list
+        SECURITY_LIST=""
+        if [[ "${{ inputs.cosign }}" == "true" ]]; then
+          SECURITY_LIST="cosign"
+        fi
+        if [[ "${{ inputs.grype }}" == "true" ]]; then
+          if [[ -n "$SECURITY_LIST" ]]; then
+            SECURITY_LIST="${SECURITY_LIST},grype"
+          else
+            SECURITY_LIST="grype"
+          fi
+        fi
+        
+        # Use original security_checks input if no boolean inputs are set
+        if [[ -z "$SECURITY_LIST" ]]; then
+          SECURITY_LIST="${{ inputs.security_checks }}"
+        fi
+        
+        # Set sign_artifacts based on cosign boolean input
+        SIGN_ARTIFACTS="${{ inputs.sign_artifacts }}"
+        if [[ "${{ inputs.cosign }}" == "true" ]]; then
+          SIGN_ARTIFACTS="true"
+        fi
+        
+        echo "artifacts=$ARTIFACTS_LIST" >> $GITHUB_OUTPUT
+        echo "security_checks=$SECURITY_LIST" >> $GITHUB_OUTPUT
+        echo "sign_artifacts=$SIGN_ARTIFACTS" >> $GITHUB_OUTPUT
+        
+        echo "🔧 Processed inputs:"
+        echo "   Artifacts: $ARTIFACTS_LIST"
+        echo "   Security checks: $SECURITY_LIST"
+        echo "   Sign artifacts: $SIGN_ARTIFACTS"
+
     - name: Setup environment
       id: setup
       shell: bash
@@ -265,7 +378,7 @@ runs:
           VERSION=${{ steps.setup.outputs.version }}
 
     - name: Run security scans
-      if: contains(inputs.security_checks, 'grype')
+      if: contains(steps.process-inputs.outputs.security_checks, 'grype')
       uses: anchore/scan-action@v6.3.0
       with:
         image: ${{ steps.setup.outputs.image_tag }}
@@ -276,7 +389,7 @@ runs:
         fail-build: false
 
     - name: Run Trivy scan
-      if: contains(inputs.security_checks, 'trivy')
+      if: contains(steps.process-inputs.outputs.security_checks, 'trivy')
       uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
       with:
         image-ref: ${{ steps.setup.outputs.image_tag }}
@@ -287,12 +400,12 @@ runs:
 
     - name: Generate artifacts
       id: generate-artifacts
-      if: inputs.artifacts != ''
+      if: steps.process-inputs.outputs.artifacts != ''
       shell: bash
       run: |
         mkdir -p artifacts
         
-        IFS=',' read -ra ARTIFACT_TYPES <<< "${{ inputs.artifacts }}"
+        IFS=',' read -ra ARTIFACT_TYPES <<< "${{ steps.process-inputs.outputs.artifacts }}"
         GENERATED_ARTIFACTS=()
         
         for artifact_type in "${ARTIFACT_TYPES[@]}"; do
@@ -353,7 +466,7 @@ runs:
         fi
 
     - name: Sign artifacts
-      if: inputs.sign_artifacts == 'true'
+      if: steps.process-inputs.outputs.sign_artifacts == 'true'
       shell: bash
       run: |
         # Install cosign
@@ -410,7 +523,7 @@ runs:
           SUMMARY+="- No artifacts generated\n"
         fi
         
-        if [[ "${{ inputs.sign_artifacts }}" == "true" ]]; then
+        if [[ "${{ steps.process-inputs.outputs.sign_artifacts }}" == "true" ]]; then
           SUMMARY+="\n**Security:**\n"
           SUMMARY+="- ✅ Image signed with cosign\n"
           if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
@@ -418,9 +531,9 @@ runs:
           fi
         fi
         
-        if [[ -n "${{ inputs.security_checks }}" ]]; then
+        if [[ -n "${{ steps.process-inputs.outputs.security_checks }}" ]]; then
           SUMMARY+="\n**Security Scans:**\n"
-          IFS=',' read -ra CHECKS <<< "${{ inputs.security_checks }}"
+          IFS=',' read -ra CHECKS <<< "${{ steps.process-inputs.outputs.security_checks }}"
           for check in "${CHECKS[@]}"; do
             SUMMARY+="- ✅ $check scan completed\n"
           done
@@ -431,7 +544,7 @@ runs:
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Upload artifacts
-      if: inputs.artifacts != ''
+      if: steps.process-inputs.outputs.artifacts != ''
       uses: actions/upload-artifact@v4
       with:
         name: kairos-artifacts-${{ steps.setup.outputs.flavor }}-${{ steps.setup.outputs.flavor_release }}-${{ steps.setup.outputs.variant }}-${{ inputs.arch }}-${{ inputs.model }}
