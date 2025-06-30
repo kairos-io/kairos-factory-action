@@ -1,0 +1,64 @@
+name: Multi-Architecture Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-latest-arm
+    
+    runs-on: ${{ matrix.runner }}
+    name: Build for ${{ matrix.arch }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Build and push Kairos image
+        uses: ./
+        with:
+          version: "auto"
+          base_image: "ubuntu:24.04"
+          model: "generic"
+          arch: ${{ matrix.arch }}
+          kubernetes_distro: "k3s"
+          kubernetes_version: "v1.28.0"
+          artifacts: "iso"
+          security_checks: "grype,trivy"
+          sign_artifacts: true
+          push_repository: "ghcr.io/${{ github.repository }}"
+          push_repository_username: ${{ github.actor }}
+          push_repository_password: ${{ secrets.GITHUB_TOKEN }}
+          summary_artifacts: true
+        id: build
+      
+      - name: Create Release
+        if: matrix.arch == 'amd64'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.iso
+            artifacts/*.iso.sha256
+            artifacts/*.iso.sha256.sig
+            artifacts/*.iso.sha256.pem
+          body: |
+            ## 🏭 Kairos Factory Release
+            
+            **Image:** `${{ steps.build.outputs.image_tag }}`
+            
+            **Artifacts:** ${{ steps.build.outputs.artifacts }}
+            
+            Built with Kairos Factory Action 🚀
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

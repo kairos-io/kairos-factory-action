@@ -1,0 +1,24 @@
+name: Basic Kairos Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Build Kairos image
+        uses: ./
+        with:
+          version: "1.0.0"
+          base_image: "ubuntu:24.04"
+          model: "generic"
+          artifacts: "iso"
+          summary_artifacts: true 

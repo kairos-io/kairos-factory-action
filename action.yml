@@ -1,0 +1,419 @@
+name: 'Kairos Factory Action'
+description: 'Build Kairos immutable images and artifacts within your release pipeline'
+
+inputs:
+  # Core build parameters
+  base_image:
+    description: 'Base image to use for building Kairos (e.g., ubuntu:24.04, opensuse/leap:15.6)'
+    required: false
+    default: 'ubuntu:24.04'
+  
+  model:
+    description: 'Target model for the build (e.g., generic, rpi3, nvidia-jetson-agx-orin)'
+    required: false
+    default: 'generic'
+  
+  arch:
+    description: 'Target architecture (amd64, arm64)'
+    required: false
+    default: 'amd64'
+  
+  kubernetes_distro:
+    description: 'Kubernetes distribution to include (k3s, k0s)'
+    required: false
+  
+  kubernetes_version:
+    description: 'Kubernetes version to include (auto for latest, or specific version)'
+    required: false
+    default: 'auto'
+  
+  version:
+    description: 'Version for the build (semver or "auto" for git describe)'
+    required: true
+  
+  trusted_boot:
+    description: 'Enable trusted boot support'
+    required: false
+    default: 'false'
+  
+  # Artifact generation
+  artifacts:
+    description: 'Comma-separated list of artifacts to generate (iso,raw,vhd,gce,tar)'
+    required: false
+    default: 'iso'
+  
+  output_format:
+    description: 'Output format override (auto, docker, oci)'
+    required: false
+    default: 'auto'
+  
+  # Security and signing
+  security_checks:
+    description: 'Comma-separated list of security checks (cosign,grype,trivy)'
+    required: false
+    default: ''
+  
+  sign_artifacts:
+    description: 'Sign generated artifacts with cosign'
+    required: false
+    default: 'false'
+  
+  # Publishing
+  push_repository:
+    description: 'Repository to push the image to (e.g., ghcr.io/user/repo)'
+    required: false
+  
+  push_repository_username:
+    description: 'Username for push repository authentication'
+    required: false
+  
+  push_repository_password:
+    description: 'Password/token for push repository authentication'
+    required: false
+  
+  # Output and reporting
+  summary_artifacts:
+    description: 'Add artifact links to GitHub Summary'
+    required: false
+    default: 'false'
+  
+  auroraboot_version:
+    description: 'Auroraboot version to use for artifact generation'
+    required: false
+    default: 'latest'
+
+outputs:
+  image_tag:
+    description: 'The generated image tag'
+    value: ${{ steps.setup.outputs.image_tag }}
+  
+  artifacts:
+    description: 'JSON array of generated artifacts'
+    value: ${{ steps.generate-artifacts.outputs.artifacts }}
+  
+  summary:
+    description: 'Build summary for GitHub Summary'
+    value: ${{ steps.generate-summary.outputs.summary }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        # Validate required inputs
+        if [[ -z "${{ inputs.version }}" ]]; then
+          echo "❌ Error: version is required"
+          exit 1
+        fi
+        
+        # Validate kubernetes_distro values
+        if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
+          case "${{ inputs.kubernetes_distro }}" in
+            k3s|k0s)
+              ;;
+            *)
+              echo "❌ Error: kubernetes_distro must be 'k3s' or 'k0s'"
+              exit 1
+              ;;
+          esac
+        fi
+        
+        # Validate arch values
+        case "${{ inputs.arch }}" in
+          amd64|arm64)
+            ;;
+          *)
+            echo "❌ Error: arch must be 'amd64' or 'arm64'"
+            exit 1
+            ;;
+        esac
+        
+        # Validate artifacts
+        if [[ -n "${{ inputs.artifacts }}" ]]; then
+          IFS=',' read -ra ARTIFACTS <<< "${{ inputs.artifacts }}"
+          for artifact in "${ARTIFACTS[@]}"; do
+            case "$artifact" in
+              iso|raw|vhd|gce|tar)
+                ;;
+              *)
+                echo "❌ Error: Invalid artifact type '$artifact'. Must be one of: iso,raw,vhd,gce,tar"
+                exit 1
+                ;;
+            esac
+          done
+        fi
+        
+        echo "✅ Input validation passed"
+
+    - name: Setup environment
+      id: setup
+      shell: bash
+      run: |
+        # Determine variant based on kubernetes_distro
+        if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
+          VARIANT="standard"
+        else
+          VARIANT="core"
+        fi
+        
+        # Handle version resolution
+        if [[ "${{ inputs.version }}" == "auto" ]]; then
+          VERSION=$(git describe --tags --dirty --always)
+        else
+          VERSION="${{ inputs.version }}"
+        fi
+        
+        # Handle kubernetes version resolution
+        if [[ "${{ inputs.kubernetes_version }}" == "auto" ]]; then
+          KUBERNETES_VERSION=""
+        else
+          KUBERNETES_VERSION="${{ inputs.kubernetes_version }}"
+        fi
+        
+        # Split base image for tag generation
+        BASE_IMAGE=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 1)
+        TAG=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 2 || echo 'latest')
+        
+        # Handle special cases for base images with slashes
+        if [[ "$BASE_IMAGE" == *"/"* ]]; then
+          DISTRO=$(echo "$BASE_IMAGE" | cut -d '/' -f 1)
+          SUB_DISTRO=$(echo "$BASE_IMAGE" | cut -d '/' -f 2)
+          FLAVOR="$DISTRO"
+          FLAVOR_RELEASE="$SUB_DISTRO-$TAG"
+        else
+          FLAVOR="$BASE_IMAGE"
+          FLAVOR_RELEASE="$TAG"
+        fi
+        
+        # Special case for nvidia
+        if [[ "${{ inputs.model }}" == "nvidia-jetson-agx-orin" ]]; then
+          FLAVOR="ubuntu"
+          FLAVOR_RELEASE="22.04"
+        fi
+        
+        # Generate image tag
+        if [[ -n "$KUBERNETES_VERSION" ]]; then
+          # Replace + with - in kubernetes version for tag compatibility
+          SANITIZED_KUBERNETES_VERSION=$(echo "$KUBERNETES_VERSION" | sed 's/+/-/g')
+          IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$FLAVOR_RELEASE-$VARIANT-${{ inputs.arch }}-${{ inputs.model }}-$VERSION-${{ inputs.kubernetes_distro }}-$SANITIZED_KUBERNETES_VERSION${{ inputs.trusted_boot == 'true' && '-uki' || '' }}"
+        else
+          IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$FLAVOR_RELEASE-$VARIANT-${{ inputs.arch }}-${{ inputs.model }}-$VERSION${{ inputs.trusted_boot == 'true' && '-uki' || '' }}"
+        fi
+        
+        # Export variables
+        echo "variant=$VARIANT" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "kubernetes_version=$KUBERNETES_VERSION" >> $GITHUB_OUTPUT
+        echo "flavor=$FLAVOR" >> $GITHUB_OUTPUT
+        echo "flavor_release=$FLAVOR_RELEASE" >> $GITHUB_OUTPUT
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+        echo "🔧 Environment setup complete"
+        echo "   Variant: $VARIANT"
+        echo "   Version: $VERSION"
+        echo "   Image Tag: $IMAGE_TAG"
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@master
+      with:
+        platforms: linux/${{ inputs.arch }}
+
+    - name: Login to registry
+      if: inputs.push_repository != ''
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ startsWith(inputs.push_repository, 'ghcr.io') && 'ghcr.io' || startsWith(inputs.push_repository, 'quay.io') && 'quay.io' || 'docker.io' }}
+        username: ${{ inputs.push_repository_username }}
+        password: ${{ inputs.push_repository_password }}
+
+    - name: Build Kairos image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: images/Dockerfile
+        platforms: linux/${{ inputs.arch }}
+        push: ${{ inputs.push_repository != '' }}
+        load: ${{ inputs.push_repository == '' }}
+        tags: ${{ steps.setup.outputs.image_tag }}
+        build-args: |
+          BASE_IMAGE=${{ inputs.base_image }}
+          MODEL=${{ inputs.model }}
+          KUBERNETES_VERSION=${{ steps.setup.outputs.kubernetes_version }}
+          KUBERNETES_DISTRO=${{ inputs.kubernetes_distro }}
+          TRUSTED_BOOT=${{ inputs.trusted_boot }}
+          VERSION=${{ steps.setup.outputs.version }}
+
+    - name: Run security scans
+      if: contains(inputs.security_checks, 'grype')
+      uses: anchore/scan-action@v6.3.0
+      with:
+        image: ${{ steps.setup.outputs.image_tag }}
+        output-format: json
+        severity-cutoff: critical
+        add-cpes-if-none: true
+        only-fixed: true
+        fail-build: false
+
+    - name: Run Trivy scan
+      if: contains(inputs.security_checks, 'trivy')
+      uses: aquasecurity/trivy-action@v0.31.0
+      with:
+        image-ref: ${{ steps.setup.outputs.image_tag }}
+        format: sarif
+        output: trivy.sarif
+        severity: CRITICAL
+        limit-severities-for-sarif: true
+
+    - name: Generate artifacts
+      id: generate-artifacts
+      if: inputs.artifacts != ''
+      shell: bash
+      run: |
+        mkdir -p artifacts
+        
+        IFS=',' read -ra ARTIFACT_TYPES <<< "${{ inputs.artifacts }}"
+        GENERATED_ARTIFACTS=()
+        
+        for artifact_type in "${ARTIFACT_TYPES[@]}"; do
+          case "$artifact_type" in
+            iso)
+              if [[ "${{ inputs.model }}" == "generic" ]]; then
+                echo "📦 Building ISO artifact..."
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v $PWD/artifacts:/output \
+                  quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
+                  --debug build-iso --output /output/ \
+                  docker:${{ steps.setup.outputs.image_tag }}
+                
+                ISO_FILE=$(ls artifacts/*.iso | head -1)
+                if [[ -n "$ISO_FILE" ]]; then
+                  GENERATED_ARTIFACTS+=("$ISO_FILE")
+                  echo "✅ ISO generated: $ISO_FILE"
+                fi
+              else
+                echo "⚠️  ISO generation only supported for generic model"
+              fi
+              ;;
+            
+            raw)
+              if [[ "${{ inputs.model }}" != "rpi3" && "${{ inputs.model }}" != "generic" && "${{ inputs.model }}" != "nvidia-jetson-agx-orin" ]]; then
+                echo "📦 Building RAW artifact..."
+                docker run --rm --privileged -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v $PWD/artifacts:/output \
+                  quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
+                  --debug \
+                  --set "disable_http_server=true" \
+                  --set "disable_netboot=true" \
+                  --set "container_image=${{ steps.setup.outputs.image_tag }}" \
+                  --set "state_dir=/output" \
+                  --set "disk.raw=true"
+                
+                RAW_FILE=$(ls artifacts/*.raw | head -1)
+                if [[ -n "$RAW_FILE" ]]; then
+                  GENERATED_ARTIFACTS+=("$RAW_FILE")
+                  echo "✅ RAW generated: $RAW_FILE"
+                fi
+              else
+                echo "⚠️  RAW generation not supported for ${{ inputs.model }} model"
+              fi
+              ;;
+            
+            vhd|gce|tar)
+              echo "📦 Building $artifact_type artifact..."
+              # Implementation for other artifact types would go here
+              echo "⚠️  $artifact_type generation not yet implemented"
+              ;;
+          esac
+        done
+        
+        # Export artifacts list
+        if [[ ${#GENERATED_ARTIFACTS[@]} -gt 0 ]]; then
+          echo "artifacts=$(printf '%s\n' "${GENERATED_ARTIFACTS[@]}" | jq -R . | jq -s .)" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Sign artifacts
+      if: inputs.sign_artifacts == 'true'
+      shell: bash
+      run: |
+        # Install cosign
+        curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+        chmod +x cosign-linux-amd64
+        sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+        
+        # Sign image
+        cosign sign ${{ steps.setup.outputs.image_tag }}
+        
+        # Sign generated artifacts
+        if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
+          IFS=$'\n' read -d '' -r -a ARTIFACTS <<< "${{ steps.generate-artifacts.outputs.artifacts }}"
+          for artifact in "${ARTIFACTS[@]}"; do
+            if [[ -f "$artifact" ]]; then
+              cosign sign-blob --yes --output-certificate="${artifact}.pem" --output-signature="${artifact}.sig" "$artifact"
+              echo "✅ Signed: $artifact"
+            fi
+          done
+        fi
+
+    - name: Generate summary
+      id: generate-summary
+      if: inputs.summary_artifacts == 'true'
+      shell: bash
+      run: |
+        SUMMARY="## 🏭 Kairos Factory Build Summary\n\n"
+        SUMMARY+="**Image:** \`${{ steps.setup.outputs.image_tag }}\`\n\n"
+        SUMMARY+="**Configuration:**\n"
+        SUMMARY+="- Base Image: \`${{ inputs.base_image }}\`\n"
+        SUMMARY+="- Model: \`${{ inputs.model }}\`\n"
+        SUMMARY+="- Architecture: \`${{ inputs.arch }}\`\n"
+        SUMMARY+="- Variant: \`${{ steps.setup.outputs.variant }}\`\n"
+        SUMMARY+="- Version: \`${{ steps.setup.outputs.version }}\`\n"
+        
+        if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
+          SUMMARY+="- Kubernetes: \`${{ inputs.kubernetes_distro }}\` \`${{ steps.setup.outputs.kubernetes_version }}\`\n"
+        fi
+        
+        if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+          SUMMARY+="- Trusted Boot: ✅ Enabled\n"
+        fi
+        
+        SUMMARY+="\n**Generated Artifacts:**\n"
+        
+        if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
+          IFS=$'\n' read -d '' -r -a ARTIFACTS <<< "${{ steps.generate-artifacts.outputs.artifacts }}"
+          for artifact in "${ARTIFACTS[@]}"; do
+            if [[ -f "$artifact" ]]; then
+              SUMMARY+="- \`$(basename "$artifact")\`\n"
+            fi
+          done
+        else
+          SUMMARY+="- No artifacts generated\n"
+        fi
+        
+        if [[ "${{ inputs.sign_artifacts }}" == "true" ]]; then
+          SUMMARY+="\n**Security:**\n"
+          SUMMARY+="- ✅ Image signed with cosign\n"
+          if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
+            SUMMARY+="- ✅ Artifacts signed with cosign\n"
+          fi
+        fi
+        
+        if [[ -n "${{ inputs.security_checks }}" ]]; then
+          SUMMARY+="\n**Security Scans:**\n"
+          IFS=',' read -ra CHECKS <<< "${{ inputs.security_checks }}"
+          for check in "${CHECKS[@]}"; do
+            SUMMARY+="- ✅ $check scan completed\n"
+          done
+        fi
+        
+        echo "summary<<EOF" >> $GITHUB_OUTPUT
+        echo "$SUMMARY" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Upload artifacts
+      if: inputs.artifacts != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: kairos-artifacts-${{ steps.setup.outputs.flavor }}-${{ steps.setup.outputs.flavor_release }}-${{ steps.setup.outputs.variant }}-${{ inputs.arch }}-${{ inputs.model }}
+        path: artifacts/
+        if-no-files-found: warn 

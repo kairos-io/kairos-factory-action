@@ -1,0 +1,49 @@
+name: Kubernetes Kairos Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-k3s:
+    runs-on: ubuntu-latest
+    name: Build K3s Kairos
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Build Kairos with K3s
+        uses: ./
+        with:
+          version: "auto"
+          base_image: "ubuntu:24.04"
+          model: "generic"
+          kubernetes_distro: "k3s"
+          kubernetes_version: "v1.28.0"
+          artifacts: "iso,raw"
+          security_checks: "grype,trivy"
+          sign_artifacts: true
+          summary_artifacts: true
+
+  build-k0s:
+    runs-on: ubuntu-latest
+    name: Build K0s Kairos
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Build Kairos with K0s
+        uses: ./
+        with:
+          version: "auto"
+          base_image: "opensuse/leap:15.6"
+          model: "generic"
+          kubernetes_distro: "k0s"
+          kubernetes_version: "v1.28.0"
+          artifacts: "iso"
+          security_checks: "grype"
+          summary_artifacts: true 
