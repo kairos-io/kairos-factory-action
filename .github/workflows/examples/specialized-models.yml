@@ -8,63 +8,42 @@ on:
 
 jobs:
   build-rpi:
-    runs-on: ubuntu-latest
     name: Build Raspberry Pi
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Build Kairos for Raspberry Pi
-        uses: ./
-        with:
-          version: "auto"
-          base_image: "ubuntu:24.04"
-          model: "rpi3"
-          arch: "arm64"
-          kubernetes_distro: "k3s"
-          kubernetes_version: "v1.28.0"
-          artifacts: "iso"
-          security_checks: "grype"
-          summary_artifacts: true
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      base_image: "ubuntu:24.04"
+      model: "rpi3"
+      arch: "arm64"
+      kubernetes_distro: "k3s"
+      kubernetes_version: "v1.28.0"
+      iso: true
+      security_checks: "grype"
+      summary_artifacts: true
 
   build-nvidia:
-    runs-on: ubuntu-latest
     name: Build NVIDIA Jetson
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Build Kairos for NVIDIA Jetson
-        uses: ./
-        with:
-          version: "auto"
-          base_image: "ubuntu:22.04"
-          model: "nvidia-jetson-agx-orin"
-          arch: "arm64"
-          kubernetes_distro: "k3s"
-          kubernetes_version: "v1.28.0"
-          artifacts: "raw"
-          security_checks: "grype,trivy"
-          summary_artifacts: true
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      base_image: "ubuntu:22.04"
+      model: "nvidia-jetson-agx-orin"
+      arch: "arm64"
+      kubernetes_distro: "k3s"
+      kubernetes_version: "v1.28.0"
+      raw: true
+      security_checks: "grype,trivy"
+      summary_artifacts: true
 
   build-trusted-boot:
-    runs-on: ubuntu-latest
     name: Build with Trusted Boot
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Build Kairos with Trusted Boot
-        uses: ./
-        with:
-          version: "auto"
-          base_image: "ubuntu:24.04"
-          model: "generic"
-          trusted_boot: true
-          artifacts: "iso"
-          security_checks: "grype,trivy"
-          sign_artifacts: true
-          summary_artifacts: true 
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      base_image: "ubuntu:24.04"
+      model: "generic"
+      trusted_boot: true
+      iso: true
+      security_checks: "grype,trivy"
+      sign_artifacts: true
+      summary_artifacts: true 

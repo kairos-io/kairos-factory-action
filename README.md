@@ -18,6 +18,33 @@ Build Kairos immutable images and artifacts within your release pipeline with ea
 - **Registry publishing**: Push to any container registry
 - **GitHub Summary**: Rich build summaries with artifact links
 
+## 🚀 Usage
+
+This repository provides a reusable workflow for building Kairos images with excellent GitHub UI visibility and comprehensive functionality.
+
+### Reusable Workflow
+
+Use the reusable workflow for building Kairos images:
+
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "v1.0.0"
+      iso: true
+      summary_artifacts: true
+      push_repository: "ghcr.io/user/repo"
+      push_repository_username: ${{ secrets.GITHUB_TOKEN }}
+      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Benefits:**
+- ✅ Expanded step visibility in GitHub UI
+- ✅ Boolean inputs for individual artifact types and security checks
+- ✅ Simplified configuration
+- ✅ Self-contained logic with no external dependencies
+
 ## 🚀 Quick Start
 
 ### Basic Usage
@@ -180,18 +207,6 @@ jobs:
       summary_artifacts: true
 ```
 
-### Basic Build (Composite Action)
-```yaml
-- name: Build Kairos image
-  uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "1.0.0"
-    base_image: "ubuntu:24.04"
-    model: "generic"
-    artifacts: "iso"
-    summary_artifacts: true
-```
-
 ### Building from Caller Repository
 ```yaml
 # Use this when calling from the Kairos main repository or any repo with images/ directory
@@ -223,27 +238,6 @@ jobs:
       push_repository: "ghcr.io/${{ github.repository }}"
       push_repository_username: ${{ github.actor }}
       push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-
-### Multi-Architecture Release (Composite Action)
-```yaml
-jobs:
-  build:
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: kairos-io/kairos-factory-action@v1
-        with:
-          version: "auto"
-          arch: ${{ matrix.arch }}
-          kubernetes_distro: "k3s"
-          artifacts: "iso"
-          push_repository: "ghcr.io/${{ github.repository }}"
-          push_repository_username: ${{ github.actor }}
-          push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-```
 
 ### Specialized Models
 ```yaml

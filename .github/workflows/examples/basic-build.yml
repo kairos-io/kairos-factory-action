@@ -8,18 +8,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Build Kairos image
-        uses: ./
-        with:
-          workdir: "."  # Default working directory
-          version: "1.0.0"
-          base_image: "ubuntu:24.04"
-          model: "generic"
-          artifacts: "iso"
-          summary_artifacts: true 
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      workdir: "."  # Default working directory
+      version: "1.0.0"
+      base_image: "ubuntu:24.04"
+      model: "generic"
+      iso: true
+      summary_artifacts: true 

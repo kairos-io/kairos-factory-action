@@ -9,28 +9,11 @@ on:
 jobs:
   # Example 1: Using the reusable workflow (recommended for consumers)
   build-with-workflow:
-    uses: ./.github/workflows/reusable-factory.yaml
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     with:
       version: "v1.0.0"
       iso: true
       summary_artifacts: true
       push_repository: "ghcr.io/example/kairos"
       push_repository_username: ${{ secrets.GITHUB_TOKEN }}
-      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-
-  # Example 2: Using the composite action directly (for advanced use cases)
-  build-with-action:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Run Kairos Factory Action
-        uses: ./action.yml
-        with:
-          version: "v1.0.0"
-          iso: true
-          raw: true
-          cosign: true
-          grype: true
-          summary_artifacts: true 
+      push_repository_password: ${{ secrets.GITHUB_TOKEN }} 
