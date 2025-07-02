@@ -434,7 +434,10 @@ jobs:
           
           # Export artifacts list
           if [[ ${#GENERATED_ARTIFACTS[@]} -gt 0 ]]; then
-            echo "artifacts=$(printf '%s\n' "${GENERATED_ARTIFACTS[@]}" | jq -R . | jq -s .)" >> $GITHUB_OUTPUT
+            # Convert array to JSON array format for GitHub Actions output
+            ARTIFACTS_JSON=$(printf '%s\n' "${GENERATED_ARTIFACTS[@]}" | jq -R . | jq -s .)
+            echo "artifacts=$ARTIFACTS_JSON" >> $GITHUB_OUTPUT
+            echo "Generated artifacts JSON: $ARTIFACTS_JSON"
           fi
 
       - name: Sign artifacts with cosign
@@ -451,13 +454,14 @@ jobs:
           
           # Sign generated artifacts
           if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
-            IFS=$'\n' read -d '' -r -a ARTIFACTS <<< "${{ steps.generate-artifacts.outputs.artifacts }}"
-            for artifact in "${ARTIFACTS[@]}"; do
-              if [[ -f "$artifact" ]]; then
+            # Parse JSON array and extract artifact paths
+            ARTIFACTS_ARRAY=$(echo "${{ steps.generate-artifacts.outputs.artifacts }}" | jq -r '.[]')
+            while IFS= read -r artifact; do
+              if [[ -n "$artifact" && -f "$artifact" ]]; then
                 cosign sign-blob --yes --output-certificate="${artifact}.pem" --output-signature="${artifact}.sig" "$artifact"
                 echo "✅ Signed: $artifact"
               fi
-            done
+            done <<< "$ARTIFACTS_ARRAY"
           fi
 
       - name: Generate GitHub summary
@@ -484,12 +488,13 @@ jobs:
           SUMMARY+="\n**Generated Artifacts:**\n"
           
           if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
-            IFS=$'\n' read -d '' -r -a ARTIFACTS <<< "${{ steps.generate-artifacts.outputs.artifacts }}"
-            for artifact in "${ARTIFACTS[@]}"; do
-              if [[ -f "$artifact" ]]; then
+            # Parse JSON array and extract artifact paths
+            ARTIFACTS_ARRAY=$(echo "${{ steps.generate-artifacts.outputs.artifacts }}" | jq -r '.[]')
+            while IFS= read -r artifact; do
+              if [[ -n "$artifact" && -f "$artifact" ]]; then
                 SUMMARY+="- \`$(basename "$artifact")\`\n"
               fi
-            done
+            done <<< "$ARTIFACTS_ARRAY"
           else
             SUMMARY+="- No artifacts generated\n"
           fi
