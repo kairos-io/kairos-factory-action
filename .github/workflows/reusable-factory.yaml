@@ -370,75 +370,64 @@ jobs:
           severity: CRITICAL
           limit-severities-for-sarif: true
 
-      - name: Generate artifacts
-        id: generate-artifacts
-        if: steps.process-inputs.outputs.artifacts != ''
+      - name: Generate ISO artifact
+        if: contains(steps.process-inputs.outputs.artifacts, 'iso') && inputs.model == 'generic'
         shell: bash
         run: |
           mkdir -p artifacts
+          echo "📦 Building ISO artifact..."
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD/artifacts:/output \
+            quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
+            --debug build-iso --output /output/ \
+            docker:${{ steps.setup.outputs.image_tag }}
           
-          IFS=',' read -ra ARTIFACT_TYPES <<< "${{ steps.process-inputs.outputs.artifacts }}"
-          GENERATED_ARTIFACTS=()
-          
-          for artifact_type in "${ARTIFACT_TYPES[@]}"; do
-            case "$artifact_type" in
-              iso)
-                if [[ "${{ inputs.model }}" == "generic" ]]; then
-                  echo "📦 Building ISO artifact..."
-                  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v $PWD/artifacts:/output \
-                    quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
-                    --debug build-iso --output /output/ \
-                    docker:${{ steps.setup.outputs.image_tag }}
-                  
-                  ISO_FILE=$(ls artifacts/*.iso | head -1)
-                  if [[ -n "$ISO_FILE" ]]; then
-                    GENERATED_ARTIFACTS+=("$ISO_FILE")
-                    echo "✅ ISO generated: $ISO_FILE"
-                  fi
-                else
-                  echo "⚠️  ISO generation only supported for generic model"
-                fi
-                ;;
-              
-              raw)
-                if [[ "${{ inputs.model }}" != "rpi3" && "${{ inputs.model }}" != "generic" && "${{ inputs.model }}" != "nvidia-jetson-agx-orin" ]]; then
-                  echo "📦 Building RAW artifact..."
-                  docker run --rm --privileged -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v $PWD/artifacts:/output \
-                    quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
-                    --debug \
-                    --set "disable_http_server=true" \
-                    --set "disable_netboot=true" \
-                    --set "container_image=${{ steps.setup.outputs.image_tag }}" \
-                    --set "state_dir=/output" \
-                    --set "disk.raw=true"
-                  
-                  RAW_FILE=$(ls artifacts/*.raw | head -1)
-                  if [[ -n "$RAW_FILE" ]]; then
-                    GENERATED_ARTIFACTS+=("$RAW_FILE")
-                    echo "✅ RAW generated: $RAW_FILE"
-                  fi
-                else
-                  echo "⚠️  RAW generation not supported for ${{ inputs.model }} model"
-                fi
-                ;;
-              
-              vhd|gce|tar)
-                echo "📦 Building $artifact_type artifact..."
-                # Implementation for other artifact types would go here
-                echo "⚠️  $artifact_type generation not yet implemented"
-                ;;
-            esac
-          done
-          
-          # Export artifacts list
-          if [[ ${#GENERATED_ARTIFACTS[@]} -gt 0 ]]; then
-            # Convert array to JSON array format for GitHub Actions output
-            ARTIFACTS_JSON=$(printf '%s\n' "${GENERATED_ARTIFACTS[@]}" | jq -R . | jq -s .)
-            echo "artifacts=$ARTIFACTS_JSON" >> $GITHUB_OUTPUT
-            echo "Generated artifacts JSON: $ARTIFACTS_JSON"
+          ISO_FILE=$(ls artifacts/*.iso | head -1)
+          if [[ -n "$ISO_FILE" ]]; then
+            echo "✅ ISO generated: $ISO_FILE"
           fi
+
+      - name: Generate RAW artifact
+        if: contains(steps.process-inputs.outputs.artifacts, 'raw') && inputs.model != 'rpi3' && inputs.model != 'generic' && inputs.model != 'nvidia-jetson-agx-orin'
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          echo "📦 Building RAW artifact..."
+          docker run --rm --privileged -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD/artifacts:/output \
+            quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
+            --debug \
+            --set "disable_http_server=true" \
+            --set "disable_netboot=true" \
+            --set "container_image=${{ steps.setup.outputs.image_tag }}" \
+            --set "state_dir=/output" \
+            --set "disk.raw=true"
+          
+          RAW_FILE=$(ls artifacts/*.raw | head -1)
+          if [[ -n "$RAW_FILE" ]]; then
+            echo "✅ RAW generated: $RAW_FILE"
+          fi
+
+      - name: Generate VHD artifact
+        if: contains(steps.process-inputs.outputs.artifacts, 'vhd')
+        shell: bash
+        run: |
+          echo "📦 Building VHD artifact..."
+          echo "⚠️  VHD generation not yet implemented"
+
+      - name: Generate GCE artifact
+        if: contains(steps.process-inputs.outputs.artifacts, 'gce')
+        shell: bash
+        run: |
+          echo "📦 Building GCE artifact..."
+          echo "⚠️  GCE generation not yet implemented"
+
+      - name: Generate TAR artifact
+        if: contains(steps.process-inputs.outputs.artifacts, 'tar')
+        shell: bash
+        run: |
+          echo "📦 Building TAR artifact..."
+          echo "⚠️  TAR generation not yet implemented"
 
       - name: Sign artifacts with cosign
         if: steps.process-inputs.outputs.sign_artifacts == 'true'
@@ -453,16 +442,12 @@ jobs:
           cosign sign ${{ steps.setup.outputs.image_tag }}
           
           # Sign generated artifacts
-          if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
-            # Parse JSON array and extract artifact paths
-            ARTIFACTS_ARRAY=$(echo "${{ steps.generate-artifacts.outputs.artifacts }}" | jq -r '.[]')
-            while IFS= read -r artifact; do
-              if [[ -n "$artifact" && -f "$artifact" ]]; then
-                cosign sign-blob --yes --output-certificate="${artifact}.pem" --output-signature="${artifact}.sig" "$artifact"
-                echo "✅ Signed: $artifact"
-              fi
-            done <<< "$ARTIFACTS_ARRAY"
-          fi
+          for artifact in artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar; do
+            if [[ -f "$artifact" ]]; then
+              cosign sign-blob --yes --output-certificate="${artifact}.pem" --output-signature="${artifact}.sig" "$artifact"
+              echo "✅ Signed: $artifact"
+            fi
+          done
 
       - name: Generate GitHub summary
         if: inputs.summary_artifacts == 'true'
@@ -487,22 +472,23 @@ jobs:
           
           SUMMARY+="\n**Generated Artifacts:**\n"
           
-          if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
-            # Parse JSON array and extract artifact paths
-            ARTIFACTS_ARRAY=$(echo "${{ steps.generate-artifacts.outputs.artifacts }}" | jq -r '.[]')
-            while IFS= read -r artifact; do
-              if [[ -n "$artifact" && -f "$artifact" ]]; then
-                SUMMARY+="- \`$(basename "$artifact")\`\n"
-              fi
-            done <<< "$ARTIFACTS_ARRAY"
-          else
+          ARTIFACT_COUNT=0
+          for artifact in artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar; do
+            if [[ -f "$artifact" ]]; then
+              SUMMARY+="- \`$(basename "$artifact")\`\n"
+              ARTIFACT_COUNT=$((ARTIFACT_COUNT + 1))
+            fi
+          done
+          
+          if [[ $ARTIFACT_COUNT -eq 0 ]]; then
             SUMMARY+="- No artifacts generated\n"
           fi
           
           if [[ "${{ steps.process-inputs.outputs.sign_artifacts }}" == "true" ]]; then
             SUMMARY+="\n**Security:**\n"
             SUMMARY+="- ✅ Image signed with cosign\n"
-            if [[ -n "${{ steps.generate-artifacts.outputs.artifacts }}" ]]; then
+            # Check if any artifacts exist for signing
+            if ls artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar 2>/dev/null | grep -q .; then
               SUMMARY+="- ✅ Artifacts signed with cosign\n"
             fi
           fi
