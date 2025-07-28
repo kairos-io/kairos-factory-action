@@ -90,16 +90,6 @@ on:
         default: "quay.io"
         description: "Container registry domain to push to"
       
-      registry_username:
-        type: string
-        default: "kairos"
-        description: "Username for registry authentication"
-      
-      registry_password:
-        type: string
-        required: false
-        description: "Password for registry authentication"
-      
       registry_namespace:
         type: string
         default: "kairos"
@@ -115,17 +105,6 @@ on:
         type: string
         required: false
         description: "Deprecated: use registry_domain, registry_username, and registry_project instead"
-      
-      push_repository_username:
-        type: string
-        required: false
-        description: "Deprecated: use registry_username instead"
-      
-      push_repository_password:
-        type: string
-        required: false
-        description: "Deprecated: use registry_password instead"
-      
       # Output and reporting
       summary_artifacts:
         type: boolean
@@ -327,8 +306,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ inputs.registry_domain }}
-          username: ${{ inputs.registry_username }}
-          password: ${{ inputs.registry_password }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Build Kairos image
         uses: docker/build-push-action@v6
