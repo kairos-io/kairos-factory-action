@@ -280,29 +280,6 @@ jobs:
           severity: CRITICAL
           limit-severities-for-sarif: true
 
-      - name: Debug ISO generation conditions
-        if: always()
-        shell: bash
-        run: |
-          echo "🔍 Debug: ISO generation conditions"
-          echo "   inputs.iso: '${{ inputs.iso }}'"
-          echo "   inputs.iso type: ${{ toJSON(inputs.iso) }}"
-          echo "   inputs.model: '${{ inputs.model }}'"
-          echo "   Condition: inputs.iso && inputs.model == 'generic'"
-          echo "   Should run: ${{ inputs.iso && inputs.model == 'generic' }}"
-          
-          if [[ "${{ inputs.iso }}" == "true" && "${{ inputs.model }}" == "generic" ]]; then
-            echo "✅ ISO generation step should run"
-          else
-            echo "❌ ISO generation step will be skipped"
-            if [[ "${{ inputs.iso }}" != "true" ]]; then
-              echo "   Reason: iso is not 'true' (actual: '${{ inputs.iso }}')"
-            fi
-            if [[ "${{ inputs.model }}" != "generic" ]]; then
-              echo "   Reason: model is not 'generic' (actual: '${{ inputs.model }}')"
-            fi
-          fi
-
       - name: Generate ISO artifact
         if: inputs.iso && inputs.model == 'generic'
         shell: bash
@@ -311,16 +288,9 @@ jobs:
           echo "   Inputs: iso=${{ inputs.iso }}, model=${{ inputs.model }}"
           echo "   Image tag: ${{ steps.setup.outputs.image_tag }}"
           
-          # Check if Docker image exists
-          if ! docker images | grep -q "${{ steps.setup.outputs.image_tag }}"; then
-            echo "❌ Error: Docker image not found: ${{ steps.setup.outputs.image_tag }}"
-            echo "   Available images:"
-            docker images
-            exit 1
-          fi
-          
           mkdir -p artifacts
           echo "📦 Building ISO artifact..."
+          echo "   Using image: ${{ steps.setup.outputs.image_tag }}"
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v $PWD/artifacts:/output \
             quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
