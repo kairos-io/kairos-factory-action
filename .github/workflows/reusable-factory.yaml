@@ -95,16 +95,11 @@ on:
         default: "kairos"
         description: "Namespace/organization in the registry URL"
       
-      registry_project:
+      registry_repository:
         type: string
-        required: false
-        description: "Project name in the registry (defaults to $FLAVOR if not specified)"
+        default: "kairos"
+        description: "Repository name in the registry URL"
       
-      # Deprecated parameters for backward compatibility
-      push_repository:
-        type: string
-        required: false
-        description: "Deprecated: use registry_domain, registry_username, and registry_project instead"
       # Output and reporting
       summary_artifacts:
         type: boolean
