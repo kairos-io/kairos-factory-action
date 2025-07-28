@@ -105,6 +105,12 @@ on:
       auroraboot_version:
         type: string
         default: "latest"
+      
+      # Custom tag format
+      custom_tag_format:
+        type: string
+        required: false
+        description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses default format."
 
 jobs:
   build:
@@ -208,13 +214,46 @@ jobs:
           fi
           
           # Generate image tag
-          if [[ -n "$KUBERNETES_VERSION" ]]; then
-            # Replace + with - in kubernetes version for tag compatibility
-            SANITIZED_KUBERNETES_VERSION=$(echo "$KUBERNETES_VERSION" | sed 's/+/-/g')
-            IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$FLAVOR_RELEASE-$VARIANT-${{ inputs.arch }}-${{ inputs.model }}-$VERSION-${{ inputs.kubernetes_distro }}-$SANITIZED_KUBERNETES_VERSION${{ inputs.trusted_boot == 'true' && '-uki' || '' }}"
-          else
-            IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$FLAVOR_RELEASE-$VARIANT-${{ inputs.arch }}-${{ inputs.model }}-$VERSION${{ inputs.trusted_boot == 'true' && '-uki' || '' }}"
+          # Replace + with - in kubernetes version for tag compatibility
+          SANITIZED_KUBERNETES_VERSION=$(echo "$KUBERNETES_VERSION" | sed 's/+/-/g')
+          
+          # Set UKI suffix if trusted boot is enabled
+          UKI_SUFFIX=""
+          if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+            UKI_SUFFIX="-uki"
           fi
+          
+          # Define variables for tag generation
+          ARCH="${{ inputs.arch }}"
+          MODEL="${{ inputs.model }}"
+          KUBERNETES_DISTRO="${{ inputs.kubernetes_distro }}"
+          UKI="$UKI_SUFFIX"
+          
+          # Generate default tag
+          if [[ -n "$KUBERNETES_VERSION" ]]; then
+            DEFAULT_TAG="$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION-$KUBERNETES_DISTRO-$SANITIZED_KUBERNETES_VERSION$UKI"
+          else
+            DEFAULT_TAG="$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION$UKI"
+          fi
+          
+          # Use custom tag format if provided, otherwise use default
+          if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
+            # Replace variables in custom format
+            CUSTOM_TAG="${{ inputs.custom_tag_format }}"
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$FLAVOR_RELEASE/$FLAVOR_RELEASE/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$VARIANT/$VARIANT/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$ARCH/$ARCH/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$MODEL/$MODEL/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$VERSION/$VERSION/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$UKI/$UKI/g")
+            TAG="$CUSTOM_TAG"
+          else
+            TAG="$DEFAULT_TAG"
+          fi
+          
+          IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$TAG"
           
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
@@ -227,6 +266,11 @@ jobs:
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
           echo "   Version: $VERSION"
+          echo "   Default Tag: $DEFAULT_TAG"
+          if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
+            echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
+            echo "   Final Tag: $TAG"
+          fi
           echo "   Image Tag: $IMAGE_TAG"
 
       - name: Setup Docker Buildx
