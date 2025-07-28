@@ -85,34 +85,46 @@ on:
         default: false
       
       # Publishing
-      push_registry:
+      registry_domain:
         type: string
         default: "quay.io"
-        description: "Container registry to push to"
+        description: "Container registry domain to push to"
       
-      push_username:
+      registry_username:
         type: string
         default: "kairos"
-        description: "Username/organization in the registry"
+        description: "Username for registry authentication"
       
-      push_project:
+      registry_password:
+        type: string
+        required: false
+        description: "Password for registry authentication"
+      
+      registry_namespace:
+        type: string
+        default: "kairos"
+        description: "Namespace/organization in the registry URL"
+      
+      registry_project:
         type: string
         required: false
         description: "Project name in the registry (defaults to $FLAVOR if not specified)"
       
+      # Deprecated parameters for backward compatibility
       push_repository:
         type: string
         required: false
-        description: "Deprecated: use push_registry, push_username, and push_project instead"
+        description: "Deprecated: use registry_domain, registry_username, and registry_project instead"
       
       push_repository_username:
         type: string
         required: false
-        description: "Deprecated: use push_username instead"
+        description: "Deprecated: use registry_username instead"
       
       push_repository_password:
         type: string
         required: false
+        description: "Deprecated: use registry_password instead"
       
       # Output and reporting
       summary_artifacts:
@@ -270,19 +282,19 @@ jobs:
             TAG="$DEFAULT_TAG"
           fi
           
-          # Determine registry, username, and project
-          REGISTRY="${{ inputs.push_registry }}"
-          USERNAME="${{ inputs.push_username }}"
+          # Determine registry, namespace, and project
+          REGISTRY="${{ inputs.registry_domain }}"
+          NAMESPACE="${{ inputs.registry_namespace }}"
           
-          # Use push_project if specified, otherwise use FLAVOR
-          if [[ -n "${{ inputs.push_project }}" ]]; then
-            PROJECT="${{ inputs.push_project }}"
+          # Use registry_project if specified, otherwise use FLAVOR
+          if [[ -n "${{ inputs.registry_project }}" ]]; then
+            PROJECT="${{ inputs.registry_project }}"
           else
             PROJECT="$FLAVOR"
           fi
           
           # Build image tag
-          IMAGE_TAG="$REGISTRY/$USERNAME/$PROJECT:$TAG"
+          IMAGE_TAG="$REGISTRY/$NAMESPACE/$PROJECT:$TAG"
           
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
@@ -296,7 +308,7 @@ jobs:
           echo "   Variant: $VARIANT"
           echo "   Version: $VERSION"
           echo "   Registry: $REGISTRY"
-          echo "   Username: $USERNAME"
+          echo "   Namespace: $NAMESPACE"
           echo "   Project: $PROJECT"
           echo "   Default Tag: $DEFAULT_TAG"
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
@@ -311,12 +323,12 @@ jobs:
           platforms: linux/${{ inputs.arch }}
 
       - name: Login to registry
-        if: inputs.push_registry != ''
+        if: inputs.registry_domain != ''
         uses: docker/login-action@v3
         with:
-          registry: ${{ inputs.push_registry }}
-          username: ${{ inputs.push_username }}
-          password: ${{ inputs.push_repository_password }}
+          registry: ${{ inputs.registry_domain }}
+          username: ${{ inputs.registry_username }}
+          password: ${{ inputs.registry_password }}
 
       - name: Build Kairos image
         uses: docker/build-push-action@v6
@@ -324,8 +336,8 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile_path }}
           platforms: linux/${{ inputs.arch }}
-          push: ${{ inputs.push_registry != '' }}
-          load: ${{ inputs.push_registry == '' }}
+          push: ${{ inputs.registry_domain != '' }}
+          load: ${{ inputs.registry_domain == '' }}
           tags: ${{ steps.setup.outputs.image_tag }}
           build-args: |
             BASE_IMAGE=${{ inputs.base_image }}
