@@ -85,13 +85,30 @@ on:
         default: false
       
       # Publishing
+      push_registry:
+        type: string
+        default: "quay.io"
+        description: "Container registry to push to"
+      
+      push_username:
+        type: string
+        default: "kairos"
+        description: "Username/organization in the registry"
+      
+      push_project:
+        type: string
+        required: false
+        description: "Project name in the registry (defaults to $FLAVOR if not specified)"
+      
       push_repository:
         type: string
         required: false
+        description: "Deprecated: use push_registry, push_username, and push_project instead"
       
       push_repository_username:
         type: string
         required: false
+        description: "Deprecated: use push_username instead"
       
       push_repository_password:
         type: string
@@ -253,7 +270,19 @@ jobs:
             TAG="$DEFAULT_TAG"
           fi
           
-          IMAGE_TAG="${{ inputs.push_repository || 'kairos' }}/$FLAVOR:$TAG"
+          # Determine registry, username, and project
+          REGISTRY="${{ inputs.push_registry }}"
+          USERNAME="${{ inputs.push_username }}"
+          
+          # Use push_project if specified, otherwise use FLAVOR
+          if [[ -n "${{ inputs.push_project }}" ]]; then
+            PROJECT="${{ inputs.push_project }}"
+          else
+            PROJECT="$FLAVOR"
+          fi
+          
+          # Build image tag
+          IMAGE_TAG="$REGISTRY/$USERNAME/$PROJECT:$TAG"
           
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
@@ -266,6 +295,9 @@ jobs:
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
           echo "   Version: $VERSION"
+          echo "   Registry: $REGISTRY"
+          echo "   Username: $USERNAME"
+          echo "   Project: $PROJECT"
           echo "   Default Tag: $DEFAULT_TAG"
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
             echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
@@ -279,11 +311,11 @@ jobs:
           platforms: linux/${{ inputs.arch }}
 
       - name: Login to registry
-        if: inputs.push_repository != ''
+        if: inputs.push_registry != ''
         uses: docker/login-action@v3
         with:
-          registry: ${{ startsWith(inputs.push_repository, 'ghcr.io') && 'ghcr.io' || startsWith(inputs.push_repository, 'quay.io') && 'quay.io' || 'docker.io' }}
-          username: ${{ inputs.push_repository_username }}
+          registry: ${{ inputs.push_registry }}
+          username: ${{ inputs.push_username }}
           password: ${{ inputs.push_repository_password }}
 
       - name: Build Kairos image
@@ -292,8 +324,8 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile_path }}
           platforms: linux/${{ inputs.arch }}
-          push: ${{ inputs.push_repository != '' }}
-          load: ${{ inputs.push_repository == '' }}
+          push: ${{ inputs.push_registry != '' }}
+          load: ${{ inputs.push_registry == '' }}
           tags: ${{ steps.setup.outputs.image_tag }}
           build-args: |
             BASE_IMAGE=${{ inputs.base_image }}
