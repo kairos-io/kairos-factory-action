@@ -90,15 +90,41 @@ on:
         default: "quay.io"
         description: "Container registry domain to push to"
       
+      registry_username:
+        type: string
+        default: "kairos"
+        description: "Username for registry authentication"
+      
+      registry_password:
+        type: string
+        required: false
+        description: "Password for registry authentication"
+      
       registry_namespace:
         type: string
         default: "kairos"
         description: "Namespace/organization in the registry URL"
       
-      registry_repository:
+      registry_project:
         type: string
-        default: "kairos"
-        description: "Repository name in the registry URL"
+        required: false
+        description: "Project name in the registry (defaults to $FLAVOR if not specified)"
+      
+      # Deprecated parameters for backward compatibility
+      push_repository:
+        type: string
+        required: false
+        description: "Deprecated: use registry_domain, registry_username, and registry_project instead"
+      
+      push_repository_username:
+        type: string
+        required: false
+        description: "Deprecated: use registry_username instead"
+      
+      push_repository_password:
+        type: string
+        required: false
+        description: "Deprecated: use registry_password instead"
       
       # Output and reporting
       summary_artifacts:
@@ -117,6 +143,12 @@ on:
 
 jobs:
   build:
+    permissions:
+      id-token: write  # OIDC support
+      contents: write
+      actions: read
+      security-events: write
+      models: none
     name: ${{ inputs.base_image }}
     runs-on: ubuntu-latest
     steps:
@@ -295,6 +327,14 @@ jobs:
         uses: docker/setup-buildx-action@master
         with:
           platforms: linux/${{ inputs.arch }}
+
+      - name: Login to registry
+        if: inputs.registry_domain != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry_domain }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Build Kairos image
         uses: docker/build-push-action@v6
