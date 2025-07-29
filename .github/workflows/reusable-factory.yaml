@@ -388,7 +388,7 @@ jobs:
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
-            echo "iso_filename=$ISO_FILE" >> $GITHUB_OUTPUT
+            echo "iso_basename=$ISO_BASENAME" >> $GITHUB_OUTPUT
           else
             echo "❌ Error: No ISO file found in artifacts directory"
             echo "   Artifacts directory contents:"
@@ -416,7 +416,14 @@ jobs:
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
             echo "✅ RAW generated: $RAW_FILE"
-            echo "raw_filename=$RAW_FILE" >> $GITHUB_OUTPUT
+            # Extract the base filename without extension for artifact naming
+            RAW_BASENAME=$(basename "$RAW_FILE" .raw)
+            echo "raw_basename=$RAW_BASENAME" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Error: No RAW file found in artifacts directory"
+            echo "   Artifacts directory contents:"
+            ls -la artifacts/ || echo "   Artifacts directory is empty or doesn't exist"
+            exit 1
           fi
 
       - name: Generate VHD artifact
@@ -526,7 +533,7 @@ jobs:
         if: inputs.iso
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-iso.outputs.iso_filename }}.zip
+          name: ${{ steps.generate-iso.outputs.iso_basename }}.iso.zip
           path: |
             artifacts/*.iso
             artifacts/*.sha256
@@ -536,7 +543,7 @@ jobs:
         if: inputs.raw
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-raw.outputs.raw_filename }}.zip
+          name: ${{ steps.generate-raw.outputs.raw_basename }}.raw.zip
           path: |
             artifacts/*.raw
             artifacts/*.sha256
