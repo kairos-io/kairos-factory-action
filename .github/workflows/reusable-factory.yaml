@@ -114,6 +114,11 @@ on:
         type: string
         required: false
         description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses default format."
+      
+      image_labels:
+        type: string
+        required: false
+        description: "Image labels to add to the image"
 
 jobs:
   build:
@@ -307,6 +312,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ inputs.registry_domain }}
+          # TODO: use generic names when released. E.g. ${{ secrets.REGISTRY_USERNAME }} and ${{ secrets.REGISTRY_PASSWORD }}
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
@@ -319,6 +325,7 @@ jobs:
           push: ${{ inputs.registry_domain != '' }}
           load: ${{ inputs.registry_domain == '' }}
           tags: ${{ steps.setup.outputs.image_tag }}
+          labels: ${{ inputs.image_labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.base_image }}
             MODEL=${{ inputs.model }}
