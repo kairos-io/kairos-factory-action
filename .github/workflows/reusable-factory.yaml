@@ -95,10 +95,10 @@ on:
         default: "kairos"
         description: "Namespace/organization in the registry URL"
       
-      registry_project:
+      registry_repository:
         type: string
         required: false
-        description: "Project name in the registry (defaults to $FLAVOR if not specified)"
+        description: "Repository name in the registry (defaults to $FLAVOR if not specified)"
       
       # Output and reporting
       summary_artifacts:
@@ -262,19 +262,19 @@ jobs:
             TAG="$DEFAULT_TAG"
           fi
           
-          # Determine registry, namespace, and project
+          # Determine registry, namespace, and repository
           REGISTRY="${{ inputs.registry_domain }}"
           NAMESPACE="${{ inputs.registry_namespace }}"
           
-          # Use registry_project if specified, otherwise use FLAVOR
-          if [[ -n "${{ inputs.registry_project }}" ]]; then
-            PROJECT="${{ inputs.registry_project }}"
+          # Use registry_repository if specified, otherwise use FLAVOR
+          if [[ -n "${{ inputs.registry_repository }}" ]]; then
+            REPOSITORY="${{ inputs.registry_repository }}"
           else
-            PROJECT="$FLAVOR"
+            REPOSITORY="$FLAVOR"
           fi
           
           # Build image tag
-          IMAGE_TAG="$REGISTRY/$NAMESPACE/$PROJECT:$TAG"
+          IMAGE_TAG="$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG"
           
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
@@ -289,7 +289,7 @@ jobs:
           echo "   Version: $VERSION"
           echo "   Registry: $REGISTRY"
           echo "   Namespace: $NAMESPACE"
-          echo "   Project: $PROJECT"
+          echo "   Repository: $REPOSITORY"
           echo "   Default Tag: $DEFAULT_TAG"
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
             echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
