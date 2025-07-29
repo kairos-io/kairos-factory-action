@@ -388,6 +388,8 @@ jobs:
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
+            # Extract the base filename without extension for artifact naming
+            ISO_BASENAME=$(basename "$ISO_FILE" .iso)
             echo "iso_basename=$ISO_BASENAME" >> $GITHUB_OUTPUT
           else
             echo "❌ Error: No ISO file found in artifacts directory"
