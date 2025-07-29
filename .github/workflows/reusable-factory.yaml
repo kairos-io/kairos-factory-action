@@ -300,7 +300,6 @@ jobs:
           echo "   Default Tag: $DEFAULT_TAG"
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
             echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
-            echo "   Final Tag: $TAG"
           fi
           echo "   Final Tag: $TAG"
           echo "   Image Tag: $IMAGE_TAG"
