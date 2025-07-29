@@ -208,17 +208,17 @@ jobs:
           
           # Split base image for tag generation
           BASE_IMAGE=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 1)
-          TAG=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 2 || echo 'latest')
+          BASE_TAG=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 2 || echo 'latest')
           
           # Handle special cases for base images with slashes
           if [[ "$BASE_IMAGE" == *"/"* ]]; then
             DISTRO=$(echo "$BASE_IMAGE" | cut -d '/' -f 1)
             SUB_DISTRO=$(echo "$BASE_IMAGE" | cut -d '/' -f 2)
             FLAVOR="$DISTRO"
-            FLAVOR_RELEASE="$SUB_DISTRO-$TAG"
+            FLAVOR_RELEASE="$SUB_DISTRO-$BASE_TAG"
           else
             FLAVOR="$BASE_IMAGE"
-            FLAVOR_RELEASE="$TAG"
+            FLAVOR_RELEASE="$BASE_TAG"
           fi
           
           # Special case for nvidia
@@ -289,6 +289,7 @@ jobs:
           echo "flavor=$FLAVOR" >> $GITHUB_OUTPUT
           echo "flavor_release=$FLAVOR_RELEASE" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
@@ -301,6 +302,7 @@ jobs:
             echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
             echo "   Final Tag: $TAG"
           fi
+          echo "   Final Tag: $TAG"
           echo "   Image Tag: $IMAGE_TAG"
 
       - name: Setup Docker Buildx
