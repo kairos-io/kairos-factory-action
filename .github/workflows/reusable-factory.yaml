@@ -115,6 +115,11 @@ on:
         required: false
         description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses default format."
       
+      custom_artifact_format:
+        type: string
+        required: false
+        description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses auroraboot's default naming."
+      
       image_labels:
         type: string
         required: false
@@ -281,6 +286,23 @@ jobs:
           # Build image tag
           IMAGE_TAG="$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG"
           
+          # Generate custom artifact format if provided
+          if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
+            # Replace variables in custom artifact format
+            CUSTOM_ARTIFACT_FORMAT="${{ inputs.custom_artifact_format }}"
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$FLAVOR_RELEASE/$FLAVOR_RELEASE/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$VARIANT/$VARIANT/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$ARCH/$ARCH/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$MODEL/$MODEL/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$VERSION/$VERSION/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$UKI/$UKI/g")
+            ARTIFACT_NAME="$CUSTOM_ARTIFACT_FORMAT"
+          else
+            ARTIFACT_NAME=""
+          fi
+          
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -290,6 +312,7 @@ jobs:
           echo "flavor_release=$FLAVOR_RELEASE" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
           
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
@@ -300,6 +323,10 @@ jobs:
           echo "   Default Tag: $DEFAULT_TAG"
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
             echo "   Custom Tag Format: ${{ inputs.custom_tag_format }}"
+          fi
+          if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
+            echo "   Custom Artifact Format: ${{ inputs.custom_artifact_format }}"
+            echo "   Artifact Name: $ARTIFACT_NAME"
           fi
           echo "   Final Tag: $TAG"
           echo "   Image Tag: $IMAGE_TAG"
@@ -389,6 +416,16 @@ jobs:
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
+            
+            # Rename ISO if custom artifact format is provided
+            if [[ -n "${{ steps.setup.outputs.artifact_name }}" ]]; then
+              NEW_ISO_NAME="${{ steps.setup.outputs.artifact_name }}.iso"
+              NEW_ISO_PATH="artifacts/$NEW_ISO_NAME"
+              mv "$ISO_FILE" "$NEW_ISO_PATH"
+              echo "✅ Renamed ISO to: $NEW_ISO_PATH"
+              ISO_FILE="$NEW_ISO_PATH"
+            fi
+            
             # Extract the base filename without extension for artifact naming
             ISO_BASENAME=$(basename "$ISO_FILE" .iso)
             echo "iso_basename=$ISO_BASENAME" >> $GITHUB_OUTPUT
@@ -419,6 +456,16 @@ jobs:
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
             echo "✅ RAW generated: $RAW_FILE"
+            
+            # Rename RAW if custom artifact format is provided
+            if [[ -n "${{ steps.setup.outputs.artifact_name }}" ]]; then
+              NEW_RAW_NAME="${{ steps.setup.outputs.artifact_name }}.raw"
+              NEW_RAW_PATH="artifacts/$NEW_RAW_NAME"
+              mv "$RAW_FILE" "$NEW_RAW_PATH"
+              echo "✅ Renamed RAW to: $NEW_RAW_PATH"
+              RAW_FILE="$NEW_RAW_PATH"
+            fi
+            
             # Extract the base filename without extension for artifact naming
             RAW_BASENAME=$(basename "$RAW_FILE" .raw)
             echo "raw_basename=$RAW_BASENAME" >> $GITHUB_OUTPUT
