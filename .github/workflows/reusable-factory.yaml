@@ -285,6 +285,7 @@ jobs:
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "kubernetes_version=$KUBERNETES_VERSION" >> $GITHUB_OUTPUT
+          echo "kubernetes_distro=$KUBERNETES_DISTRO" >> $GITHUB_OUTPUT
           echo "flavor=$FLAVOR" >> $GITHUB_OUTPUT
           echo "flavor_release=$FLAVOR_RELEASE" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -368,6 +369,7 @@ jobs:
 
       - name: Generate ISO artifact
         if: inputs.iso && inputs.model == 'generic'
+        id: generate-iso
         shell: bash
         run: |
           echo "🔍 Debug: Starting ISO generation step"
@@ -386,6 +388,7 @@ jobs:
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
+            echo "iso_filename=$ISO_FILE" >> $GITHUB_OUTPUT
           else
             echo "❌ Error: No ISO file found in artifacts directory"
             echo "   Artifacts directory contents:"
@@ -395,6 +398,7 @@ jobs:
 
       - name: Generate RAW artifact
         if: inputs.raw && inputs.model != 'rpi3' && inputs.model != 'generic' && inputs.model != 'nvidia-jetson-agx-orin'
+        id: generate-raw
         shell: bash
         run: |
           mkdir -p artifacts
@@ -412,6 +416,7 @@ jobs:
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
             echo "✅ RAW generated: $RAW_FILE"
+            echo "raw_filename=$RAW_FILE" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate VHD artifact
@@ -517,10 +522,22 @@ jobs:
           
           echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload artifacts
-        if: inputs.iso || inputs.raw || inputs.vhd || inputs.gce || inputs.tar
+      - name: Upload ISO artifacts
+        if: inputs.iso
         uses: actions/upload-artifact@v4
         with:
-          name: kairos-artifacts-${{ steps.setup.outputs.flavor }}-${{ steps.setup.outputs.flavor_release }}-${{ steps.setup.outputs.variant }}-${{ inputs.arch }}-${{ inputs.model }}
-          path: artifacts/
-          if-no-files-found: warn 
+          name: ${{ steps.generate-iso.outputs.iso_filename }}.zip
+          path: |
+            artifacts/*.iso
+            artifacts/*.sha256
+          if-no-files-found: error
+
+      - name: Upload RAW artifacts
+        if: inputs.raw
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.generate-raw.outputs.raw_filename }}.zip
+          path: |
+            artifacts/*.raw
+            artifacts/*.sha256
+          if-no-files-found: error
