@@ -367,7 +367,8 @@ jobs:
 
       - name: Run Grype security scan
         if: inputs.grype
-        uses: anchore/scan-action@v6.3.0
+        id: grype
+        uses: anchore/scan-action@16910ac423301c6d30554b83a7f71ac6ff4a51f3 # v6.4.0
         with:
           image: ${{ steps.setup.outputs.image_tag }}
           output-format: json
@@ -378,13 +379,24 @@ jobs:
       - name: Grype detailed check
         if: inputs.grype
         run: |
+          # Check if the JSON file exists and is not empty
+          if [[ ! -f "${{ steps.grype.outputs.json }}" ]] || [[ ! -s "${{ steps.grype.outputs.json }}" ]]; then
+            echo "❌ Error: Grype JSON output file is missing or empty"
+            echo "   Expected file: ${{ steps.grype.outputs.json }}"
+            echo "   This indicates the Grype scan failed or didn't produce output"
+            exit 1
+          fi
+
+          # Process the JSON file and check for critical vulnerabilities
           jq -r '.matches[] | select(.vulnerability.severity == "Critical") | "\(.vulnerability.id) \t \(.artifact.name) \(.artifact.version) -> \(.artifact.locations[]?.path // "no-path")"' "${{ steps.grype.outputs.json }}" | tee grype-critical.txt
 
           if [[ $(wc -l < grype-critical.txt) -gt 0 ]]; then
-            echo "Critical vulnerabilities found in the image. Failing the build."
+            echo "❌ Critical vulnerabilities found in the image. Failing the build."
+            echo "   Vulnerabilities found:"
+            cat grype-critical.txt
             exit 1
           else
-            echo "No critical vulnerabilities found in the image."
+            echo "✅ No critical vulnerabilities found in the image."
           fi
 
       - name: Run Trivy security scan
