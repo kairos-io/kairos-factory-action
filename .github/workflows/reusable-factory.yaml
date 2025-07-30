@@ -203,6 +203,7 @@ jobs:
           else
             VERSION="${{ inputs.version }}"
           fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           
           # Handle kubernetes version resolution
           if [[ "${{ inputs.kubernetes_version }}" == "auto" ]]; then
@@ -285,6 +286,7 @@ jobs:
           
           # Build image tag
           IMAGE_TAG="$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG"
+          echo "IMAGE_NAME=$IMAGE_TAG" >> $GITHUB_ENV
           
           # Generate custom artifact format if provided
           if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
