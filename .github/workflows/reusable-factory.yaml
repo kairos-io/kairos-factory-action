@@ -535,43 +535,47 @@ jobs:
         if: inputs.summary_artifacts
         shell: bash
         run: |
-          SUMMARY="## 🏭 Kairos Factory Build Summary\n\n"
-          SUMMARY+="**Image:** \`${{ steps.setup.outputs.image_tag }}\`\n\n"
-          SUMMARY+="**Configuration:**\n"
-          SUMMARY+="- Base Image: \`${{ inputs.base_image }}\`\n"
-          SUMMARY+="- Model: \`${{ inputs.model }}\`\n"
-          SUMMARY+="- Architecture: \`${{ inputs.arch }}\`\n"
-          SUMMARY+="- Variant: \`${{ steps.setup.outputs.variant }}\`\n"
-          SUMMARY+="- Version: \`${{ steps.setup.outputs.version }}\`\n"
+          echo "## 🏭 Kairos Factory Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.setup.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Base Image: \`${{ inputs.base_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Model: \`${{ inputs.model }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Architecture: \`${{ inputs.arch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Variant: \`${{ steps.setup.outputs.variant }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: \`${{ steps.setup.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           
           if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
-            SUMMARY+="- Kubernetes: \`${{ inputs.kubernetes_distro }}\` \`${{ steps.setup.outputs.kubernetes_version }}\`\n"
+            echo "- Kubernetes: \`${{ inputs.kubernetes_distro }}\` \`${{ steps.setup.outputs.kubernetes_version }}\`" >> $GITHUB_STEP_SUMMARY
           fi
           
           if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-            SUMMARY+="- Trusted Boot: ✅ Enabled\n"
+            echo "- Trusted Boot: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
           fi
           
-          SUMMARY+="\n**Generated Artifacts:**\n"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated Artifacts:**" >> $GITHUB_STEP_SUMMARY
           
           ARTIFACT_COUNT=0
           for artifact in artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar; do
             if [[ -f "$artifact" ]]; then
-              SUMMARY+="- \`$(basename "$artifact")\`\n"
+              echo "- \`$(basename "$artifact")\`" >> $GITHUB_STEP_SUMMARY
               ARTIFACT_COUNT=$((ARTIFACT_COUNT + 1))
             fi
           done
           
           if [[ $ARTIFACT_COUNT -eq 0 ]]; then
-            SUMMARY+="- No artifacts generated\n"
+            echo "- No artifacts generated" >> $GITHUB_STEP_SUMMARY
           fi
           
           if [[ "${{ steps.process-inputs.outputs.sign_artifacts }}" == "true" ]]; then
-            SUMMARY+="\n**Security:**\n"
-            SUMMARY+="- ✅ Image signed with cosign\n"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Security:**" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Image signed with cosign" >> $GITHUB_STEP_SUMMARY
             # Check if any artifacts exist for signing
             if ls artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar 2>/dev/null | grep -q .; then
-              SUMMARY+="- ✅ Artifacts signed with cosign\n"
+              echo "- ✅ Artifacts signed with cosign" >> $GITHUB_STEP_SUMMARY
             fi
           fi
           
@@ -585,13 +589,12 @@ jobs:
           fi
           
           if [[ ${#SECURITY_SCANS[@]} -gt 0 ]]; then
-            SUMMARY+="\n**Security Scans:**\n"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Security Scans:**" >> $GITHUB_STEP_SUMMARY
             for check in "${SECURITY_SCANS[@]}"; do
-              SUMMARY+="- ✅ $check scan completed\n"
+              echo "- ✅ $check scan completed" >> $GITHUB_STEP_SUMMARY
             done
           fi
-          
-          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload ISO artifacts
         if: inputs.iso
