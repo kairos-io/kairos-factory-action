@@ -353,8 +353,8 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile_path }}
           platforms: linux/${{ inputs.arch }}
-          push: ${{ inputs.registry_domain != '' }}
-          load: ${{ inputs.registry_domain == '' }}
+          push: false
+          load: true
           tags: ${{ steps.setup.outputs.image_tag }}
           labels: ${{ inputs.image_labels }}
           build-args: |
@@ -615,3 +615,8 @@ jobs:
             artifacts/*.raw
             artifacts/*.sha256
           if-no-files-found: error
+
+      - name: Push Kairos image
+        if: inputs.registry_domain != '' && inputs.model == 'generic'
+        run: |
+          docker push ${{ steps.setup.outputs.image_tag }}
