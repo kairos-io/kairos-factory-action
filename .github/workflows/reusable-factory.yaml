@@ -434,19 +434,6 @@ jobs:
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
-            
-            # Rename ISO if custom artifact format is provided
-            if [[ -n "${{ steps.setup.outputs.artifact_name }}" ]]; then
-              NEW_ISO_NAME="${{ steps.setup.outputs.artifact_name }}.iso"
-              NEW_ISO_PATH="artifacts/$NEW_ISO_NAME"
-              mv "$ISO_FILE" "$NEW_ISO_PATH"
-              echo "✅ Renamed ISO to: $NEW_ISO_PATH"
-              ISO_FILE="$NEW_ISO_PATH"
-            fi
-            
-            # Extract the base filename without extension for artifact naming
-            ISO_BASENAME=$(basename "$ISO_FILE" .iso)
-            echo "iso_basename=$ISO_BASENAME" >> $GITHUB_OUTPUT
           else
             echo "❌ Error: No ISO file found in artifacts directory"
             echo "   Artifacts directory contents:"
@@ -474,19 +461,6 @@ jobs:
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
             echo "✅ RAW generated: $RAW_FILE"
-            
-            # Rename RAW if custom artifact format is provided
-            if [[ -n "${{ steps.setup.outputs.artifact_name }}" ]]; then
-              NEW_RAW_NAME="${{ steps.setup.outputs.artifact_name }}.raw"
-              NEW_RAW_PATH="artifacts/$NEW_RAW_NAME"
-              mv "$RAW_FILE" "$NEW_RAW_PATH"
-              echo "✅ Renamed RAW to: $NEW_RAW_PATH"
-              RAW_FILE="$NEW_RAW_PATH"
-            fi
-            
-            # Extract the base filename without extension for artifact naming
-            RAW_BASENAME=$(basename "$RAW_FILE" .raw)
-            echo "raw_basename=$RAW_BASENAME" >> $GITHUB_OUTPUT
           else
             echo "❌ Error: No RAW file found in artifacts directory"
             echo "   Artifacts directory contents:"
@@ -604,7 +578,7 @@ jobs:
         if: inputs.iso
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-iso.outputs.iso_basename }}.iso.zip
+          name: ${{ steps.generate-iso.inputs.artifact_name }}.iso.zip
           path: |
             artifacts/*.iso
             artifacts/*.sha256
@@ -614,7 +588,7 @@ jobs:
         if: inputs.raw
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-raw.outputs.raw_basename }}.raw.zip
+          name: ${{ steps.generate-raw.inputs.artifact_name }}.raw.zip
           path: |
             artifacts/*.raw
             artifacts/*.sha256
