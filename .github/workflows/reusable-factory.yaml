@@ -138,7 +138,7 @@ jobs:
       actions: read
       security-events: write
       models: none
-    name: ${{ inputs.base_image }}
+    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
