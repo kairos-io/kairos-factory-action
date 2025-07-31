@@ -293,7 +293,7 @@ jobs:
           IMAGE_TAG="$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG"
           echo "IMAGE_NAME=$IMAGE_TAG" >> $GITHUB_ENV
           
-          # Generate custom artifact format if provided
+          # Generate artifact name
           if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
             # Replace variables in custom artifact format
             CUSTOM_ARTIFACT_FORMAT="${{ inputs.custom_artifact_format }}"
@@ -307,7 +307,18 @@ jobs:
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$UKI/$UKI/g")
             ARTIFACT_NAME="$CUSTOM_ARTIFACT_FORMAT"
           else
-            ARTIFACT_NAME=""
+            # Generate default artifact name format
+            DEFAULT_ARTIFACT_NAME="kairos-$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION"
+            
+            # Append kubernetes distro and version if defined
+            if [[ -n "$KUBERNETES_DISTRO" ]]; then
+              DEFAULT_ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME-$KUBERNETES_DISTRO-$SANITIZED_KUBERNETES_VERSION"
+            fi
+            
+            # Append UKI suffix if trusted boot is enabled
+            DEFAULT_ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME$UKI"
+            
+            ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME"
           fi
           
           # Export variables
@@ -578,7 +589,7 @@ jobs:
         if: inputs.iso
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-iso.inputs.artifact_name }}.iso.zip
+          name: ${{ steps.setup.outputs.artifact_name }}.iso.zip
           path: |
             artifacts/*.iso
             artifacts/*.sha256
@@ -588,7 +599,7 @@ jobs:
         if: inputs.raw
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.generate-raw.inputs.artifact_name }}.raw.zip
+          name: ${{ steps.setup.outputs.artifact_name }}.raw.zip
           path: |
             artifacts/*.raw
             artifacts/*.sha256
