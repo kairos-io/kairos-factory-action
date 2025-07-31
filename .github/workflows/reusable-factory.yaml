@@ -205,6 +205,14 @@ jobs:
           # Handle version resolution
           if [[ "${{ inputs.version }}" == "auto" ]]; then
             VERSION=$(git describe --tags --dirty --always)
+            # Handle three cases:
+            # 1. No tags: 39d55d3 → v0.0.0-39d55d3
+            # 2. Dirty tag: v3.5.0-23-g94fe1d98 → keep as is
+            # 3. Clean tag: v3.5.0 → keep as is
+            if [[ "$VERSION" =~ ^[a-f0-9]+$ ]]; then
+              # Just a commit SHA (no tags), prefix with v0.0.0-
+              VERSION="v0.0.0-$VERSION"
+            fi
           else
             VERSION="${{ inputs.version }}"
           fi
