@@ -2,6 +2,11 @@ name: Build Kairos Image
 
 on:
   workflow_call:
+    secrets:
+      registry_username:
+        required: false
+      registry_password:
+        required: false
     inputs:
       # Dockerfile path
       dockerfile_path:
@@ -343,9 +348,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ inputs.registry_domain }}
-          # TODO: use generic names when released. E.g. ${{ secrets.REGISTRY_USERNAME }} and ${{ secrets.REGISTRY_PASSWORD }}
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+          username: ${{ secrets.registry_username }}
+          password: ${{ secrets.registry_password }}
 
       - name: Build Kairos image
         uses: docker/build-push-action@v6
