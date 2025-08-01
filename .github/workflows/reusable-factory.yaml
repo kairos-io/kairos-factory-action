@@ -325,8 +325,19 @@ jobs:
             REPOSITORY="$FLAVOR"
           fi
           
+          IMAGE_TAG=""
           # Build image tag
-          IMAGE_TAG="$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG"
+          if [[ -n "$REGISTRY" ]]; then
+            IMAGE_TAG="$REGISTRY/"
+          fi
+          if [[ -n "$NAMESPACE" ]]; then
+            IMAGE_TAG="$IMAGE_TAG$NAMESPACE/"
+          fi
+          if [[ -n "$REPOSITORY" ]]; then
+            IMAGE_TAG="$IMAGE_TAG$REPOSITORY:"
+          fi
+          IMAGE_TAG="$IMAGE_TAG$TAG"
+
           echo "IMAGE_NAME=$IMAGE_TAG" >> $GITHUB_ENV
           
           # Generate artifact name
