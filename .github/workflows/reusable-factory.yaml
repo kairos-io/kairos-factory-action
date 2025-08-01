@@ -154,21 +154,21 @@ jobs:
       - name: Validate inputs and setup Dockerfile
         shell: bash
         run: |
-          # Check if the specified Dockerfile exists
-          if [ ! -f "${{ inputs.dockerfile_path }}" ]; then
-            echo "⚠️  Dockerfile not found at ${{ inputs.dockerfile_path }}"
-            echo "   Current directory: $(pwd)"
-            echo "   Directory contents: $(ls -la)"
-            
-            # Check if user specified a custom path (not the default)
-            if [[ "${{ inputs.dockerfile_path }}" != "images/Dockerfile" ]]; then
-              echo "❌ Error: Custom Dockerfile not found at ${{ inputs.dockerfile_path }}"
+          # Check if user provided a dockerfile_path
+          if [[ -n "${{ inputs.dockerfile_path }}" ]]; then
+            # User provided a path - validate it exists
+            if [ ! -f "${{ inputs.dockerfile_path }}" ]; then
+              echo "❌ Error: Dockerfile not found at ${{ inputs.dockerfile_path }}"
+              echo "   Current directory: $(pwd)"
+              echo "   Directory contents: $(ls -la)"
               echo "   Please ensure the Dockerfile exists at the specified path"
               exit 1
             fi
-            
-            # Use fallback only for default path
-            echo "📥 Using fallback Dockerfile from Kairos ${{ inputs.kairos_version }}"
+            echo "✅ Found Dockerfile at ${{ inputs.dockerfile_path }}"
+            echo "DOCKERFILE_PATH=${{ inputs.dockerfile_path }}" >> $GITHUB_ENV
+          else
+            # User didn't provide a path - download fallback
+            echo "📥 No Dockerfile path provided, downloading fallback from Kairos ${{ inputs.kairos_version }}"
             
             # Create a temporary directory for the fallback Dockerfile
             TEMP_DIR=$(mktemp -d)
@@ -186,9 +186,6 @@ jobs:
               echo "❌ Error: Failed to download default Dockerfile"
               exit 1
             fi
-          else
-            echo "✅ Found Dockerfile at ${{ inputs.dockerfile_path }}"
-            echo "DOCKERFILE_PATH=${{ inputs.dockerfile_path }}" >> $GITHUB_ENV
           fi
           
           # Validate required inputs
