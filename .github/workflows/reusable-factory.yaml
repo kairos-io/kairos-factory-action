@@ -11,7 +11,12 @@ on:
       # Dockerfile path
       dockerfile_path:
         type: string
-        default: "images/Dockerfile"
+      
+      # Kairos version for fallback Dockerfile
+      kairos_version:
+        type: string
+        default: "v3.5.0"
+        description: "Kairos version to use when downloading the fallback Dockerfile"
       
       # Core build parameters
       base_image:
@@ -146,18 +151,45 @@ jobs:
         with:
           fetch-depth: '0'
 
-      - name: Validate inputs
+      - name: Validate inputs and setup Dockerfile
         shell: bash
         run: |
-          # Validate that Dockerfile exists
+          # Check if the specified Dockerfile exists
           if [ ! -f "${{ inputs.dockerfile_path }}" ]; then
-            echo "❌ Error: Dockerfile not found at ${{ inputs.dockerfile_path }}"
+            echo "⚠️  Dockerfile not found at ${{ inputs.dockerfile_path }}"
             echo "   Current directory: $(pwd)"
             echo "   Directory contents: $(ls -la)"
-            exit 1
+            
+            # Check if user specified a custom path (not the default)
+            if [[ "${{ inputs.dockerfile_path }}" != "images/Dockerfile" ]]; then
+              echo "❌ Error: Custom Dockerfile not found at ${{ inputs.dockerfile_path }}"
+              echo "   Please ensure the Dockerfile exists at the specified path"
+              exit 1
+            fi
+            
+            # Use fallback only for default path
+            echo "📥 Using fallback Dockerfile from Kairos ${{ inputs.kairos_version }}"
+            
+            # Create a temporary directory for the fallback Dockerfile
+            TEMP_DIR=$(mktemp -d)
+            echo "📁 Created temporary directory: $TEMP_DIR"
+            
+            # Download the default Kairos Dockerfile to temp directory
+            echo "📥 Downloading default Kairos Dockerfile from https://github.com/kairos-io/kairos/blob/${{ inputs.kairos_version }}/images/Dockerfile"
+            curl -L "https://raw.githubusercontent.com/kairos-io/kairos/${{ inputs.kairos_version }}/images/Dockerfile" -o "$TEMP_DIR/Dockerfile"
+            
+            if [ -f "$TEMP_DIR/Dockerfile" ]; then
+              echo "✅ Successfully downloaded default Dockerfile to $TEMP_DIR/Dockerfile"
+              # Update the dockerfile_path to use the downloaded file
+              echo "DOCKERFILE_PATH=$TEMP_DIR/Dockerfile" >> $GITHUB_ENV
+            else
+              echo "❌ Error: Failed to download default Dockerfile"
+              exit 1
+            fi
+          else
+            echo "✅ Found Dockerfile at ${{ inputs.dockerfile_path }}"
+            echo "DOCKERFILE_PATH=${{ inputs.dockerfile_path }}" >> $GITHUB_ENV
           fi
-          
-          echo "✅ Found Dockerfile at ${{ inputs.dockerfile_path }}"
           
           # Validate required inputs
           if [[ -z "${{ inputs.version }}" ]]; then
@@ -374,7 +406,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ inputs.dockerfile_path }}
+          file: ${{ env.DOCKERFILE_PATH }}
           platforms: linux/${{ inputs.arch }}
           push: false
           load: true
