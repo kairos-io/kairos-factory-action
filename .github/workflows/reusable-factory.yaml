@@ -97,12 +97,10 @@ on:
       # Publishing
       registry_domain:
         type: string
-        default: "quay.io"
         description: "Container registry domain to push to"
       
       registry_namespace:
         type: string
-        default: "kairos"
         description: "Namespace/organization in the registry URL"
       
       registry_repository:
