@@ -123,12 +123,12 @@ on:
       custom_tag_format:
         type: string
         required: false
-        description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses default format."
+        description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $SHA. If not provided, uses default format."
       
       custom_artifact_format:
         type: string
         required: false
-        description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI. If not provided, uses auroraboot's default naming."
+        description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $SHA. If not provided, uses auroraboot's default naming."
       
       image_labels:
         type: string
@@ -310,6 +310,7 @@ jobs:
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$UKI/$UKI/g")
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$SHA/${{ github.sha }}/g")
             TAG="$CUSTOM_TAG"
           else
             TAG="$DEFAULT_TAG"
@@ -342,6 +343,7 @@ jobs:
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$UKI/$UKI/g")
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$SHA/${{ github.sha }}/g")
             ARTIFACT_NAME="$CUSTOM_ARTIFACT_FORMAT"
           else
             # Generate default artifact name format
