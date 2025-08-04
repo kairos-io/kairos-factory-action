@@ -482,7 +482,7 @@ jobs:
           fi
 
       - name: Generate RAW artifact
-        if: inputs.raw && inputs.model != 'rpi3' && inputs.model != 'generic' && inputs.model != 'nvidia-jetson-agx-orin'
+        if: inputs.raw
         id: generate-raw
         shell: bash
         run: |
