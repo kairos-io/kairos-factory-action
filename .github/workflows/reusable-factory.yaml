@@ -288,6 +288,7 @@ jobs:
           MODEL="${{ inputs.model }}"
           KUBERNETES_DISTRO="${{ inputs.kubernetes_distro }}"
           UKI="$UKI_SUFFIX"
+          COMMIT_SHA="${{ github.sha }}"
           
           # Generate default tag
           if [[ -n "$KUBERNETES_VERSION" ]]; then
@@ -298,42 +299,8 @@ jobs:
           
           # Use custom tag format if provided, otherwise use default
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
-            # Replace variables in custom format
-            CUSTOM_TAG="${{ inputs.custom_tag_format }}"
-            echo "🔍 Debug: Initial CUSTOM_TAG: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$FLAVOR/$FLAVOR/g")
-            echo "🔍 Debug: After FLAVOR replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$FLAVOR_RELEASE/$FLAVOR_RELEASE/g")
-            echo "🔍 Debug: After FLAVOR_RELEASE replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$VARIANT/$VARIANT/g")
-            echo "🔍 Debug: After VARIANT replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$ARCH/$ARCH/g")
-            echo "🔍 Debug: After ARCH replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$MODEL/$MODEL/g")
-            echo "🔍 Debug: After MODEL replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$VERSION/$VERSION/g")
-            echo "🔍 Debug: After VERSION replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
-            echo "🔍 Debug: After KUBERNETES_DISTRO replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
-            echo "🔍 Debug: After KUBERNETES_VERSION replacement: '$CUSTOM_TAG'"
-            
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$UKI/$UKI/g")
-            echo "🔍 Debug: After UKI replacement: '$CUSTOM_TAG'"
-            
-            echo "🔍 Debug: About to replace COMMIT_SHA with: '${{ github.sha }}'"
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$COMMIT_SHA/${{ github.sha }}/g")
-            echo "🔍 Debug: After COMMIT_SHA replacement: '$CUSTOM_TAG'"
-            
-            TAG="$CUSTOM_TAG"
+            # Shell will automatically expand variables in the format
+            TAG="${{ inputs.custom_tag_format }}"
           else
             TAG="$DEFAULT_TAG"
           fi
@@ -366,20 +333,8 @@ jobs:
           
           # Generate artifact name
           if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
-            # Replace variables in custom artifact format
-            CUSTOM_ARTIFACT_FORMAT="${{ inputs.custom_artifact_format }}"
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$FLAVOR/$FLAVOR/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$FLAVOR_RELEASE/$FLAVOR_RELEASE/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$VARIANT/$VARIANT/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$ARCH/$ARCH/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$MODEL/$MODEL/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$VERSION/$VERSION/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$UKI/$UKI/g")
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$COMMIT_SHA/${{ github.sha }}/g")
-            echo "🔍 Debug: Final CUSTOM_ARTIFACT_FORMAT: $CUSTOM_ARTIFACT_FORMAT"
-            ARTIFACT_NAME="$CUSTOM_ARTIFACT_FORMAT"
+            # Shell will automatically expand variables in the format
+            ARTIFACT_NAME="${{ inputs.custom_artifact_format }}"
           else
             # Generate default artifact name format
             DEFAULT_ARTIFACT_NAME="kairos-$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION"
