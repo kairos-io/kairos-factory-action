@@ -494,7 +494,7 @@ jobs:
             --debug \
             --set "disable_http_server=true" \
             --set "disable_netboot=true" \
-            --set "container_image=${{ steps.setup.outputs.image_tag }}" \
+            --set "container_image=docker:${{ steps.setup.outputs.image_tag }}" \
             --set "state_dir=/output" \
             --set "disk.raw=true"
           
