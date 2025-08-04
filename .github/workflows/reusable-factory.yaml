@@ -121,12 +121,12 @@ on:
       custom_tag_format:
         type: string
         required: false
-        description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $SHA. If not provided, uses default format."
+        description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses default format."
       
       custom_artifact_format:
         type: string
         required: false
-        description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $SHA. If not provided, uses auroraboot's default naming."
+        description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses auroraboot's default naming."
       
       image_labels:
         type: string
@@ -309,10 +309,8 @@ jobs:
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
             CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$UKI/$UKI/g")
-            echo "🔍 Debug: Original CUSTOM_TAG: $CUSTOM_TAG"
-            echo "🔍 Debug: github.sha value: ${{ github.sha }}"
-            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$SHA/${{ github.sha }}/g")
-            echo "🔍 Debug: After SHA replacement: $CUSTOM_TAG"
+            CUSTOM_TAG=$(echo "$CUSTOM_TAG" | sed "s/\$COMMIT_SHA/${{ github.sha }}/g")
+            echo "🔍 Debug: Final CUSTOM_TAG: $CUSTOM_TAG"
             TAG="$CUSTOM_TAG"
           else
             TAG="$DEFAULT_TAG"
@@ -357,9 +355,8 @@ jobs:
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_DISTRO/$KUBERNETES_DISTRO/g")
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$KUBERNETES_VERSION/$SANITIZED_KUBERNETES_VERSION/g")
             CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$UKI/$UKI/g")
-            echo "🔍 Debug: Original CUSTOM_ARTIFACT_FORMAT: $CUSTOM_ARTIFACT_FORMAT"
-            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$SHA/${{ github.sha }}/g")
-            echo "🔍 Debug: After SHA replacement in artifact: $CUSTOM_ARTIFACT_FORMAT"
+            CUSTOM_ARTIFACT_FORMAT=$(echo "$CUSTOM_ARTIFACT_FORMAT" | sed "s/\$COMMIT_SHA/${{ github.sha }}/g")
+            echo "🔍 Debug: Final CUSTOM_ARTIFACT_FORMAT: $CUSTOM_ARTIFACT_FORMAT"
             ARTIFACT_NAME="$CUSTOM_ARTIFACT_FORMAT"
           else
             # Generate default artifact name format
