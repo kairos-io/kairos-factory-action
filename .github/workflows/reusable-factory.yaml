@@ -142,7 +142,7 @@ jobs:
       actions: read
       security-events: write
       models: none
-    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}${{ inputs.kubernetes_distro != '' && format('-' + inputs.kubernetes_distro) || format('') }}
+    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}${{ inputs.kubernetes_distro != '' && format('-{0}', inputs.kubernetes_distro) || format('') }}
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - name: Checkout source
