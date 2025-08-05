@@ -34,6 +34,7 @@ on:
       kubernetes_distro:
         type: string
         required: false
+        description: "Kubernetes distribution to include. Must be either 'k0s' or 'k3s'. If not specified, no Kubernetes distribution will be included."
       
       kubernetes_version:
         type: string
@@ -141,7 +142,7 @@ jobs:
       actions: read
       security-events: write
       models: none
-    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}
+    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}${{ inputs.kubernetes_distro != '' && format('-' + inputs.kubernetes_distro) || format('') }}
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - name: Checkout source
