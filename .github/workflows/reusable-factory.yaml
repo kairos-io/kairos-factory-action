@@ -453,6 +453,11 @@ jobs:
           severity: CRITICAL
           limit-severities-for-sarif: true
 
+      - name: Push Kairos image
+        if: inputs.registry_domain != '' && inputs.model == 'generic'
+        run: |
+          docker push ${{ steps.setup.outputs.image_tag }}
+
       - name: Generate ISO artifact
         if: inputs.iso && inputs.model == 'generic'
         id: generate-iso
@@ -633,8 +638,3 @@ jobs:
             artifacts/*.raw
             artifacts/*.sha256
           if-no-files-found: error
-
-      - name: Push Kairos image
-        if: inputs.registry_domain != '' && inputs.model == 'generic'
-        run: |
-          docker push ${{ steps.setup.outputs.image_tag }}
