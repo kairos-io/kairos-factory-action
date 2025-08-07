@@ -529,6 +529,15 @@ jobs:
             DOCKER_CMD="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock"
             DOCKER_CMD="$DOCKER_CMD -v $PWD/artifacts:/output"
 
+            # Add cloud-config volume mount if provided
+            if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
+              if [[ ! -f "${{ inputs.cloud_config_path }}" ]]; then
+                echo "❌ Error: Cloud config not found at ${{ inputs.cloud_config_path }}"
+                exit 1
+              fi
+              DOCKER_CMD="$DOCKER_CMD -v $PWD/${{ inputs.cloud_config_path }}:/cloud-config.yaml"
+            fi
+
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
               DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.keys_dir }}:/keys"
 
@@ -537,17 +546,6 @@ jobs:
               fi
             fi
 
-            # Add cloud-config volume mount if provided
-            if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
-              if [[ ! -f "${{ inputs.cloud_config_path }}" ]]; then
-                echo "❌ Error: Cloud config not found at ${{ inputs.cloud_config_path }}"
-                exit 1
-              fi
-              # Convert to absolute path for Docker
-              CLOUD_CONFIG_ABS_PATH=$(realpath "${{ inputs.cloud_config_path }}")
-              DOCKER_CMD="$DOCKER_CMD -v $CLOUD_CONFIG_ABS_PATH:/cloud-config.yaml"
-              echo "📄 Cloud config: ${{ inputs.cloud_config_path }} -> $CLOUD_CONFIG_ABS_PATH"
-            fi
 
             DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
@@ -577,7 +575,7 @@ jobs:
               fi
             fi
 
-            # Add cloud-config argument if provided (AFTER the auroraboot flags)
+            # Add cloud-config argument if provided 
             if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
               DOCKER_CMD="$DOCKER_CMD --cloud-config /cloud-config.yaml"
             fi
