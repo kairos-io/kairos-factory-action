@@ -47,7 +47,12 @@ on:
       trusted_boot:
         type: boolean
         default: false
-      
+
+      cloud_config_path:
+        type: string
+        required: false
+        description: "Path to the cloud-config.yaml to embed in the image"
+
       # Individual artifact types
       iso:
         type: boolean
@@ -531,6 +536,7 @@ jobs:
                 DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
               fi
             fi
+
             DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
               DOCKER_CMD="$DOCKER_CMD build-uki"
@@ -557,6 +563,16 @@ jobs:
               if [[ -n "${{ inputs.sysext_dir }}" ]]; then
                 DOCKER_CMD="$DOCKER_CMD --overlay-iso /overlay"
               fi
+            fi
+
+            # Add cloud-config
+            if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
+              if [[ ! -f "${{ inputs.cloud_config_path }}" ]]; then
+                echo "❌ Error: Cloud config not found at ${{ inputs.cloud_config_path }}"
+                exit 1
+              fi
+              DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.cloud_config_path }}:/cloud-config.yaml"
+              DOCKER_CMD="$DOCKER_CMD --cloud-config /cloud-config.yaml"
             fi
 
             DOCKER_CMD="$DOCKER_CMD docker:${{ steps.setup.outputs.image_tag }}"
