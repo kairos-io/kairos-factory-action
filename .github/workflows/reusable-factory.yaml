@@ -366,7 +366,28 @@ jobs:
             
             ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME"
           fi
-          
+
+          # Use keys_dir if specified
+          if [[ -n "${{ inputs.keys_dir }}" ]]; then
+            KEYS_DIR="${{ inputs.keys_dir }}"
+          else
+            KEYS_DIR=""
+          fi
+
+          # Use sysext_dir if specified
+          if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+            SYSEXT_DIR="${{ inputs.sysext_dir }}"
+          else
+            SYSEXT_DIR=""
+          fi
+
+          # Use single_efi_cmdline if specified
+          if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
+            SINGLE_EFI_CMDLINE="${{ inputs.single_efi_cmdline }}"
+          else
+            SINGLE_EFI_CMDLINE=""
+          fi
+
           # Export variables
           echo "variant=$VARIANT" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -377,6 +398,9 @@ jobs:
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "keys_dir=$KEYS_DIR" >> $GITHUB_OUTPUT
+          echo "sysext_dir=$SYSEXT_DIR" >> $GITHUB_OUTPUT
+          echo "single_efi_cmdline=$SINGLE_EFI_CMDLINE" >> $GITHUB_OUTPUT
           
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
@@ -391,6 +415,15 @@ jobs:
           if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
             echo "   Custom Artifact Format: ${{ inputs.custom_artifact_format }}"
             echo "   Artifact Name: $ARTIFACT_NAME"
+          fi
+          if [[ -n "${{ inputs.keys_dir }}" ]]; then
+            echo "   Keys Dir: ${{ inputs.keys_dir }}"
+          fi
+          if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+            echo "   Sysext Dir: ${{ inputs.sysext_dir }}"
+          fi
+          if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
+            echo "   Single EFI Cmdline: ${{ inputs.single_efi_cmdline }}"
           fi
           echo "   Final Tag: $TAG"
           echo "   Image Tag: $IMAGE_TAG"
@@ -498,7 +531,12 @@ jobs:
                 DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
               fi
             fi
-            DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug build-iso"
+            DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD build-uki"
+            else
+              DOCKER_CMD="$DOCKER_CMD build-iso"
+            fi
             ## auroraboot flags
             DOCKER_CMD="$DOCKER_CMD --output /output/"
 
@@ -507,12 +545,12 @@ jobs:
               DOCKER_CMD="$DOCKER_CMD --tpm-pcr-private-key /keys/tpm2-pcr-private.pem"
               DOCKER_CMD="$DOCKER_CMD --sb-key /keys/db.key --sb-cert /keys/db.pem"
 
-              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
-                DOCKER_CMD="$DOCKER_CMD --overlay-iso /overlay"
-              fi
-
               if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
                 DOCKER_CMD="$DOCKER_CMD --single-efi-cmdline=\"${{ inputs.single_efi_cmdline }}\""
+              fi
+
+              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD --overlay-iso /overlay"
               fi
             fi
 
