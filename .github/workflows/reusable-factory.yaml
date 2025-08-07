@@ -133,6 +133,22 @@ on:
         type: string
         required: false
         description: "Image labels to add to the image"
+      
+      # Trusted boot inputs
+      keys_dir:
+        type: string
+        required: false
+        description: "Path to directory containing trusted boot keys (required when trusted_boot is true)"
+      
+      sysext_dir:
+        type: string
+        required: false
+        description: "Path to directory containing system extensions overlay (optional, only used when trusted_boot is true)"
+
+      single_efi_cmdline:
+        type: string
+        required: false
+        description: "Single EFI command line to use for trusted boot (optional, only used when trusted_boot is true)"
 
 jobs:
   build:
@@ -469,13 +485,42 @@ jobs:
           echo "   Image tag: ${{ steps.setup.outputs.image_tag }}"
           
           mkdir -p artifacts
-          echo "📦 Building ISO artifact..."
           echo "   Using image: ${{ steps.setup.outputs.image_tag }}"
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $PWD/artifacts:/output \
-            quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
-            --debug build-iso --output /output/ \
-            docker:${{ steps.setup.outputs.image_tag }}
+
+          echo "📦 Building ISO ..."
+            DOCKER_CMD="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock"
+            DOCKER_CMD="$DOCKER_CMD -v $PWD/artifacts:/output"
+
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.keys_dir }}:/keys"
+
+              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
+              fi
+            fi
+            DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug build-iso"
+            ## auroraboot flags
+            DOCKER_CMD="$DOCKER_CMD --output /output/"
+
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD --public-keys /keys"
+              DOCKER_CMD="$DOCKER_CMD --tpm-pcr-private-key /keys/tpm2-pcr-private.pem"
+              DOCKER_CMD="$DOCKER_CMD --sb-key /keys/db.key --sb-cert /keys/db.pem"
+
+              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD --overlay-iso /overlay"
+              fi
+
+              if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD --single-efi-cmdline=\"${{ inputs.single_efi_cmdline }}\""
+              fi
+            fi
+
+            DOCKER_CMD="$DOCKER_CMD docker:${{ steps.setup.outputs.image_tag }}"
+            
+            echo "🔧 Executing: $DOCKER_CMD"
+            eval $DOCKER_CMD
+
           
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
