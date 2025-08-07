@@ -524,70 +524,69 @@ jobs:
           
           mkdir -p artifacts
           echo "   Using image: ${{ steps.setup.outputs.image_tag }}"
+
           echo "📦 Building ISO ..."
+            DOCKER_CMD="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock"
+            DOCKER_CMD="$DOCKER_CMD -v $PWD/artifacts:/output"
 
-          # Build Docker command with volume mounts
-          DOCKER_VOLUMES="-v /var/run/docker.sock:/var/run/docker.sock -v $PWD/artifacts:/output"
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.keys_dir }}:/keys"
 
-          if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-            DOCKER_VOLUMES="$DOCKER_VOLUMES -v ${{ inputs.keys_dir }}:/keys"
-            if [[ -n "${{ inputs.sysext_dir }}" ]]; then
-              DOCKER_VOLUMES="$DOCKER_VOLUMES -v ${{ inputs.sysext_dir }}:/overlay"
+              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
+              fi
             fi
-          fi
 
-          # Add cloud-config volume mount if provided
-          if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
-            if [[ ! -f "${{ inputs.cloud_config_path }}" ]]; then
-              echo "❌ Error: Cloud config not found at ${{ inputs.cloud_config_path }}"
-              exit 1
+            # Add cloud-config volume mount if provided
+            if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
+              if [[ ! -f "${{ inputs.cloud_config_path }}" ]]; then
+                echo "❌ Error: Cloud config not found at ${{ inputs.cloud_config_path }}"
+                exit 1
+              fi
+              # Convert to absolute path for Docker
+              CLOUD_CONFIG_ABS_PATH=$(realpath "${{ inputs.cloud_config_path }}")
+              DOCKER_CMD="$DOCKER_CMD -v $CLOUD_CONFIG_ABS_PATH:/cloud-config.yaml"
+              echo "📄 Cloud config: ${{ inputs.cloud_config_path }} -> $CLOUD_CONFIG_ABS_PATH"
             fi
-            DOCKER_VOLUMES="$DOCKER_VOLUMES -v ${{ inputs.cloud_config_path }}:/cloud-config.yaml"
-          fi
 
-          # Build auroraboot command arguments
-          AURORABOOT_ARGS="--debug"
-
-          if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-            AURORABOOT_ARGS="$AURORABOOT_ARGS build-uki"
-          else
-            AURORABOOT_ARGS="$AURORABOOT_ARGS build-iso"
-          fi
-
-          # Add output directory
-          if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --output-dir /output/"
-          else
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --output /output/"
-          fi
-
-          # Add trusted boot specific arguments
-          if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --output-type=iso"
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --public-keys /keys"
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --tpm-pcr-private-key /keys/tpm2-pcr-private.pem"
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --sb-key /keys/db.key --sb-cert /keys/db.pem"
-            if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
-              AURORABOOT_ARGS="$AURORABOOT_ARGS --single-efi-cmdline=\"${{ inputs.single_efi_cmdline }}\""
+            DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD build-uki"
+            else
+              DOCKER_CMD="$DOCKER_CMD build-iso"
             fi
-            if [[ -n "${{ inputs.sysext_dir }}" ]]; then
-              AURORABOOT_ARGS="$AURORABOOT_ARGS --overlay-iso /overlay"
+            ## auroraboot flags
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD --output-dir /output/"
+            else
+              DOCKER_CMD="$DOCKER_CMD --output /output/"
             fi
-          fi
 
-          # Add cloud-config argument
-          if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
-            AURORABOOT_ARGS="$AURORABOOT_ARGS --cloud-config /cloud-config.yaml"
-          fi
+            if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD --output-type=iso"
+              DOCKER_CMD="$DOCKER_CMD --public-keys /keys"
+              DOCKER_CMD="$DOCKER_CMD --tmp-pcr-private-key /keys/tmp2-pcr-private.pem"
+              DOCKER_CMD="$DOCKER_CMD --sb-key /keys/db.key --sb-cert /keys/db.pem"
 
-          # Add the source image
-          AURORABOOT_ARGS="$AURORABOOT_ARGS docker:${{ steps.setup.outputs.image_tag }}"
+              if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD --single-efi-cmdline=\"${{ inputs.single_efi_cmdline }}\""
+              fi
 
-          # Combine everything into the final Docker command
-          DOCKER_CMD="docker run --rm $DOCKER_VOLUMES quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} $AURORABOOT_ARGS"
+              if [[ -n "${{ inputs.sysext_dir }}" ]]; then
+                DOCKER_CMD="$DOCKER_CMD --overlay-iso /overlay"
+              fi
+            fi
 
-          echo "🔧 Executing: $DOCKER_CMD"
-          eval $DOCKER_CMD
+            # Add cloud-config argument if provided (AFTER the auroraboot flags)
+            if [[ -n "${{ inputs.cloud_config_path }}" ]]; then
+              DOCKER_CMD="$DOCKER_CMD --cloud-config /cloud-config.yaml"
+            fi
+
+            DOCKER_CMD="$DOCKER_CMD docker:${{ steps.setup.outputs.image_tag }}"
+
+            echo "🔧 Executing: $DOCKER_CMD"
+            eval $DOCKER_CMD
+
           
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
