@@ -545,8 +545,6 @@ jobs:
                 DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
               fi
             fi
-
-
             DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
               DOCKER_CMD="$DOCKER_CMD build-uki"
@@ -563,7 +561,7 @@ jobs:
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
               DOCKER_CMD="$DOCKER_CMD --output-type=iso"
               DOCKER_CMD="$DOCKER_CMD --public-keys /keys"
-              DOCKER_CMD="$DOCKER_CMD --tmp-pcr-private-key /keys/tmp2-pcr-private.pem"
+              DOCKER_CMD="$DOCKER_CMD --tpm-pcr-private-key /keys/tpm2-pcr-private.pem"
               DOCKER_CMD="$DOCKER_CMD --sb-key /keys/db.key --sb-cert /keys/db.pem"
 
               if [[ -n "${{ inputs.single_efi_cmdline }}" ]]; then
