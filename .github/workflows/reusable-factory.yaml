@@ -545,6 +545,7 @@ jobs:
             fi
 
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
+              DOCKER_CMD="$DOCKER_CMD --output-type=iso"
               DOCKER_CMD="$DOCKER_CMD --public-keys /keys"
               DOCKER_CMD="$DOCKER_CMD --tpm-pcr-private-key /keys/tpm2-pcr-private.pem"
               DOCKER_CMD="$DOCKER_CMD --sb-key /keys/db.key --sb-cert /keys/db.pem"
