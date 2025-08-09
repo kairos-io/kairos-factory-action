@@ -128,6 +128,11 @@ on:
         type: string
         required: false
         description: "Custom artifact filename format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses auroraboot's default naming."
+
+      custom_job_name_format:
+        type: string
+        required: false
+        description: "Custom job name format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses default format."
       
       image_labels:
         type: string
@@ -164,7 +169,7 @@ jobs:
       actions: read
       security-events: write
       models: none
-    name: ${{ inputs.base_image }}-${{ inputs.kubernetes_distro != '' && format('standard') || format('core') }}-${{ inputs.arch }}-${{ inputs.model }}${{ inputs.kubernetes_distro != '' && format('-{0}', inputs.kubernetes_distro) || format('') }}${{ inputs.trusted_boot && format('-{0}', 'uki') || format('') }}
+    name: ${{ inputs.custom_job_name_format != '' && inputs.custom_job_name_format || format('{0}-{1}-{2}-{3}{4}{5}', inputs.base_image, (inputs.kubernetes_distro != '' && 'standard' || 'core'), inputs.arch, inputs.model, (inputs.kubernetes_distro != '' && format('-{0}', inputs.kubernetes_distro) || ''), (inputs.trusted_boot && '-uki' || '')) }}
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - name: Checkout source
