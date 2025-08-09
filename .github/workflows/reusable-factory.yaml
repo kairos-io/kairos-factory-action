@@ -149,6 +149,12 @@ on:
         type: string
         required: false
         description: "Single EFI command line to use for trusted boot (optional, only used when trusted_boot is true)"
+      
+      # Cloud config (file path or URL)
+      cloud_config:
+        type: string
+        required: false
+        description: "Cloud-config file path or URL passed to auroraboot via --cloud-config. If empty, not passed."
 
 jobs:
   build:
@@ -531,6 +537,24 @@ jobs:
                 DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
               fi
             fi
+
+            # Optional cloud-config (file path or URL)
+            CLOUD_CONFIG_ARG=""
+            CLOUD_CONFIG_INPUT="${{ inputs.cloud_config }}"
+            if [[ -n "$CLOUD_CONFIG_INPUT" ]]; then
+              if [[ "$CLOUD_CONFIG_INPUT" =~ ^https?:// ]]; then
+                CLOUD_CONFIG_ARG="--cloud-config \"$CLOUD_CONFIG_INPUT\""
+              else
+                # Mount local file into container and refer to stable path
+                if [[ "$CLOUD_CONFIG_INPUT" != /* ]]; then
+                  ABS_CC_PATH="$PWD/$CLOUD_CONFIG_INPUT"
+                else
+                  ABS_CC_PATH="$CLOUD_CONFIG_INPUT"
+                fi
+                DOCKER_CMD="$DOCKER_CMD -v \"$ABS_CC_PATH\":/cloud-config:ro"
+                CLOUD_CONFIG_ARG="--cloud-config /cloud-config"
+              fi
+            fi
             DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
               DOCKER_CMD="$DOCKER_CMD build-uki"
@@ -559,6 +583,11 @@ jobs:
               fi
             fi
 
+            # Append cloud-config flag if provided
+            if [[ -n "$CLOUD_CONFIG_ARG" ]]; then
+              DOCKER_CMD="$DOCKER_CMD $CLOUD_CONFIG_ARG"
+            fi
+
             DOCKER_CMD="$DOCKER_CMD docker:${{ steps.setup.outputs.image_tag }}"
             
             echo "🔧 Executing: $DOCKER_CMD"
@@ -582,15 +611,38 @@ jobs:
         run: |
           mkdir -p artifacts
           echo "📦 Building RAW artifact..."
-          docker run --rm --privileged -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $PWD/artifacts:/output \
-            quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} \
-            --debug \
-            --set "disable_http_server=true" \
-            --set "disable_netboot=true" \
-            --set "container_image=docker:${{ steps.setup.outputs.image_tag }}" \
-            --set "state_dir=/output" \
-            --set "disk.raw=true"
+          DOCKER_CMD="docker run --rm --privileged -v /var/run/docker.sock:/var/run/docker.sock"
+          DOCKER_CMD="$DOCKER_CMD -v $PWD/artifacts:/output"
+
+          # Optional cloud-config (file path or URL)
+          CLOUD_CONFIG_ARG=""
+          CLOUD_CONFIG_INPUT="${{ inputs.cloud_config }}"
+          if [[ -n "$CLOUD_CONFIG_INPUT" ]]; then
+            if [[ "$CLOUD_CONFIG_INPUT" =~ ^https?:// ]]; then
+              CLOUD_CONFIG_ARG="--cloud-config \"$CLOUD_CONFIG_INPUT\""
+            else
+              if [[ "$CLOUD_CONFIG_INPUT" != /* ]]; then
+                ABS_CC_PATH="$PWD/$CLOUD_CONFIG_INPUT"
+              else
+                ABS_CC_PATH="$CLOUD_CONFIG_INPUT"
+              fi
+              DOCKER_CMD="$DOCKER_CMD -v \"$ABS_CC_PATH\":/cloud-config:ro"
+              CLOUD_CONFIG_ARG="--cloud-config /cloud-config"
+            fi
+          fi
+
+          DOCKER_CMD="$DOCKER_CMD quay.io/kairos/auroraboot:${{ inputs.auroraboot_version }} --debug"
+          if [[ -n "$CLOUD_CONFIG_ARG" ]]; then
+            DOCKER_CMD="$DOCKER_CMD $CLOUD_CONFIG_ARG"
+          fi
+          DOCKER_CMD="$DOCKER_CMD --set \"disable_http_server=true\""
+          DOCKER_CMD="$DOCKER_CMD --set \"disable_netboot=true\""
+          DOCKER_CMD="$DOCKER_CMD --set \"container_image=docker:${{ steps.setup.outputs.image_tag }}\""
+          DOCKER_CMD="$DOCKER_CMD --set \"state_dir=/output\""
+          DOCKER_CMD="$DOCKER_CMD --set \"disk.raw=true\""
+
+          echo "🔧 Executing: $DOCKER_CMD"
+          eval $DOCKER_CMD
           
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
