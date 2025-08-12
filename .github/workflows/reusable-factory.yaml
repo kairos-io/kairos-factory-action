@@ -170,6 +170,16 @@ on:
         type: string
         required: false
         description: "Cloud-config file path or URL passed to auroraboot via --cloud-config. If empty, not passed."
+      
+      release:
+        type: boolean
+        default: false
+        description: "Whether to create a GitHub release for the built artifacts"
+
+      list_release_artifacts:
+        type: boolean
+        default: false
+        description: "List all the artifacts that would be included in the release in the GitHub summary"
 
 jobs:
   build:
@@ -751,10 +761,10 @@ jobs:
         run: |
           mkdir -p artifacts
           if ls artifacts/*.{iso,raw,vhd,tar} 1> /dev/null 2>&1; then
-            echo "🔐 Computing SHA256 checksums"
-            for f in artifacts/*.{iso,raw,vhd,tar}; do
+            echo "�� Computng VSHA256 checksums"
+            for f inartifact.s/*.{iso,raw,vhd,tar}; do
               [ -f "$f" ] || continue
-              sha256sum "$f" | tee "${f}.sha256"
+              sha256sum "$f" | tee "${f}.sha256
             done
           else
             echo "ℹ️  No artifact files found to checksum"
@@ -805,6 +815,26 @@ jobs:
             echo "🔏 Signing RAW OCI image tag: ${{ steps.setup.outputs.image_tag }}-img"
             cosign sign ${{ steps.setup.outputs.image_tag }}-img
           fi
+      - name: GitHub Release
+        if: inputs.release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        with:
+          files: |
+            artifacts/*.iso
+            artifacts/*.iso.sha256
+            artifacts/*.iso.sha256.sig
+      - name: List Release Artifacts
+        if: inputs.list_release_artifacts
+        shell: bash
+        run: |
+          echo "## 🏭 Kairos Factory Release Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifacts:**" >> $GITHUB_STEP_SUMMARY
+          for artifact in artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar; do
+            if [[ -f "$artifact" ]]; then
+              echo "- \`$(basename "$artifact")\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
 
       - name: Generate GitHub summary
         if: inputs.summary_artifacts
