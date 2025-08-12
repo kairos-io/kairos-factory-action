@@ -292,6 +292,13 @@ jobs:
             VERSION="${{ inputs.version }}"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          if [[ "${{ inputs.kairos_version }}" == "auto" ]]; then
+            KAIROS_VERSION=$VERSION
+          elif [[ "${{ inputs.kairos_version }}" != "" ]]; then
+            KAIROS_VERSION="${{ inputs.kairos_version }}"
+          fi
+          echo "KAIROS_VERSION=$KAIROS_VERSION" >> $GITHUB_ENV
           
           # Handle kubernetes version resolution
           if [[ "${{ inputs.kubernetes_version }}" == "auto" ]]; then
