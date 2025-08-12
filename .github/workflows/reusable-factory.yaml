@@ -368,6 +368,9 @@ jobs:
           # Build image tag
           if [[ -n "$REGISTRY" ]]; then
             IMAGE_TAG="$REGISTRY/"
+          else
+            # Default to Docker Hub when no registry is specified
+            IMAGE_TAG="docker.io/library/"
           fi
           if [[ -n "$NAMESPACE" ]]; then
             IMAGE_TAG="$IMAGE_TAG$NAMESPACE/"
