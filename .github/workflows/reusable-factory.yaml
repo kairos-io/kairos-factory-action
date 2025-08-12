@@ -368,9 +368,6 @@ jobs:
           # Build image tag
           if [[ -n "$REGISTRY" ]]; then
             IMAGE_TAG="$REGISTRY/"
-          else
-            # Default to Docker Hub when no registry is specified
-            IMAGE_TAG="docker.io/library/"
           fi
           if [[ -n "$NAMESPACE" ]]; then
             IMAGE_TAG="$IMAGE_TAG$NAMESPACE/"
@@ -805,8 +802,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "🔏 Signing image: ${{ steps.setup.outputs.image_tag }}"
-          cosign sign ${{ steps.setup.outputs.image_tag }}
+          
+          # Check if image was pushed to registry (registry_domain is specified)
+          if [[ -n "${{ inputs.registry_domain }}" ]]; then
+            echo "🔏 Signing image in registry: ${{ steps.setup.outputs.image_tag }}"
+            cosign sign ${{ steps.setup.outputs.image_tag }}
+          else
+            echo "🔏 Signing local image: ${{ steps.setup.outputs.image_tag }}"
+            # For local images, we need to use the local image reference
+            cosign sign --local-image ${{ steps.setup.outputs.image_tag }}
+          fi
 
           echo "🔏 Signing artifact checksums"
           for checksum in artifacts/*.sha256; do
@@ -817,8 +822,13 @@ jobs:
           done
 
           if [[ -n "${{ env.RAW_ARTIFACT }}" ]]; then
-            echo "🔏 Signing RAW OCI image tag: ${{ steps.setup.outputs.image_tag }}-img"
-            cosign sign ${{ steps.setup.outputs.image_tag }}-img
+            if [[ -n "${{ inputs.registry_domain }}" ]]; then
+              echo "🔏 Signing RAW OCI image tag in registry: ${{ steps.setup.outputs.image_tag }}-img"
+              cosign sign ${{ steps.setup.outputs.image_tag }}-img
+            else
+              echo "🔏 Signing local RAW OCI image tag: ${{ steps.setup.outputs.image_tag }}-img"
+              cosign sign --local-image ${{ steps.setup.outputs.image_tag }}-img
+            fi
           fi
       - name: GitHub Release
         if: inputs.release
