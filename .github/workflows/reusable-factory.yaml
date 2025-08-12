@@ -796,22 +796,15 @@ jobs:
         uses: sigstore/cosign-installer@main
 
       - name: Sign image and artifact checksums with cosign
-        if: inputs.cosign
+        if: inputs.cosign && inputs.registry_domain != ''
         env:
           COSIGN_YES: true
         shell: bash
         run: |
           set -euo pipefail
           
-          # Check if image was pushed to registry (registry_domain is specified)
-          if [[ -n "${{ inputs.registry_domain }}" ]]; then
-            echo "🔏 Signing image in registry: ${{ steps.setup.outputs.image_tag }}"
-            cosign sign ${{ steps.setup.outputs.image_tag }}
-          else
-            echo "🔏 Signing local image: ${{ steps.setup.outputs.image_tag }}"
-            # For local images, we need to use the local image reference
-            cosign sign --local-image ${{ steps.setup.outputs.image_tag }}
-          fi
+          echo "🔏 Signing image in registry: ${{ steps.setup.outputs.image_tag }}"
+          cosign sign ${{ steps.setup.outputs.image_tag }}
 
           echo "🔏 Signing artifact checksums"
           for checksum in artifacts/*.sha256; do
@@ -822,13 +815,8 @@ jobs:
           done
 
           if [[ -n "${{ env.RAW_ARTIFACT }}" ]]; then
-            if [[ -n "${{ inputs.registry_domain }}" ]]; then
-              echo "🔏 Signing RAW OCI image tag in registry: ${{ steps.setup.outputs.image_tag }}-img"
-              cosign sign ${{ steps.setup.outputs.image_tag }}-img
-            else
-              echo "🔏 Signing local RAW OCI image tag: ${{ steps.setup.outputs.image_tag }}-img"
-              cosign sign --local-image ${{ steps.setup.outputs.image_tag }}-img
-            fi
+            echo "🔏 Signing RAW OCI image tag in registry: ${{ steps.setup.outputs.image_tag }}-img"
+            cosign sign ${{ steps.setup.outputs.image_tag }}-img
           fi
       - name: GitHub Release
         if: inputs.release
@@ -889,7 +877,7 @@ jobs:
             echo "- No artifacts generated" >> $GITHUB_STEP_SUMMARY
           fi
           
-          if [[ "${{ inputs.cosign }}" == "true" ]]; then
+          if [[ "${{ inputs.cosign }}" == "true" && "${{ inputs.registry_domain }}" != "" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security:**" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ Image signed with cosign" >> $GITHUB_STEP_SUMMARY
@@ -897,6 +885,10 @@ jobs:
             if ls artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar 2>/dev/null | grep -q .; then
               echo "- ✅ Artifacts signed with cosign" >> $GITHUB_STEP_SUMMARY
             fi
+          elif [[ "${{ inputs.cosign }}" == "true" && "${{ inputs.registry_domain }}" == "" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Security:**" >> $GITHUB_STEP_SUMMARY
+            echo "- ⚠️  Cosign signing skipped (requires registry_domain)" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Check which security scans were run
