@@ -797,6 +797,8 @@ jobs:
 
       - name: Sign image and artifact checksums with cosign
         if: inputs.cosign
+        env:
+          COSIGN_YES: true
         shell: bash
         run: |
           set -euo pipefail
