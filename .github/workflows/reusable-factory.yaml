@@ -761,10 +761,10 @@ jobs:
         run: |
           mkdir -p artifacts
           if ls artifacts/*.{iso,raw,vhd,tar} 1> /dev/null 2>&1; then
-            echo "�� Computng VSHA256 checksums"
-            for f in artifact.s/*.{iso,raw,vhd,tar}; do
+            echo "🔍 Computing SHA256 checksums"
+            for f in artifacts/*.{iso,raw,vhd,tar}; do
               [ -f "$f" ] || continue
-              sha256sum "$f" | tee "${f}.sha256
+              sha256sum "$f" | tee "${f}.sha256"
             done
           else
             echo "ℹ️  No artifact files found to checksum"
