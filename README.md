@@ -1,147 +1,53 @@
 # Kairos Factory Action 🏭
 
-> [!CAUTION]
-> This Action is in early development and with the help of AI, wait until a stable release before relying on it's API
-
-Build Kairos immutable images and artifacts within your release pipeline with ease. This GitHub Action simplifies the process of creating Kairos container images and bootable formats (ISO, RAW, VHD, etc.) for various platforms and architectures.
+A GitHub Actions reusable workflow for building Kairos immutable images and artifacts with comprehensive security scanning, digital signing, and multi-platform support.
 
 ## ✨ Features
 
 - **Multi-platform support**: Build for `amd64` and `arm64` architectures
 - **Multiple base images**: Support for Ubuntu, OpenSUSE, and other distributions
 - **Kubernetes integration**: Built-in support for K3s and K0s distributions
-- **Artifact generation**: Create ISO, RAW, VHD, GCE, and TAR artifacts
-- **Security scanning**: Integrated Grype and Trivy vulnerability scanning
+- **Artifact generation**: Create ISO, and RAW artifacts
+- **Security scanning**: Integrated Grype and Trivy vulnerability scanning with SARIF support
 - **Digital signing**: Cosign integration for artifact signing
-- **Trusted boot**: Support for UKI (Unified Kernel Image) builds
+- **Trusted boot**: Support for UKI/USI (Unified Kernel/System Image) builds
 - **Flexible versioning**: Automatic git-based versioning or manual semver
 - **Registry publishing**: Push to any container registry
 - **GitHub Summary**: Rich build summaries with artifact links
-
-## 🚀 Usage
-
-This repository provides a reusable workflow for building Kairos images with excellent GitHub UI visibility and comprehensive functionality.
-
-### Reusable Workflow
-
-Use the reusable workflow for building Kairos images:
-
-```yaml
-jobs:
-  build:
-    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
-    with:
-      version: "v1.0.0"
-      iso: true
-      summary_artifacts: true
-      push_repository: "ghcr.io/user/repo"
-      push_repository_username: ${{ secrets.GITHUB_TOKEN }}
-      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-```
-
-**Benefits:**
-- ✅ Expanded step visibility in GitHub UI
-- ✅ Boolean inputs for individual artifact types and security checks
-- ✅ Simplified configuration
-- ✅ Self-contained logic with no external dependencies
+- **Custom naming**: Flexible tag and artifact naming formats
+- **Cloud config support**: Integration with cloud-init configurations
 
 ## 🚀 Quick Start
 
 ### Basic Usage
 
 ```yaml
-- name: Build Kairos image
-  uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "1.0.0"
-    base_image: "ubuntu:24.04"
-    model: "generic"
-    artifacts: "iso"
-    summary_artifacts: true
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "v1.0.0"
+      base_image: "ubuntu:24.04"
+      model: "generic"
+      iso: true
+      summary_artifacts: true
 ```
 
 ### With Kubernetes
-
-```yaml
-- name: Build Kairos with K3s
-  uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "auto"
-    base_image: "ubuntu:24.04"
-    kubernetes_distro: "k3s"
-    kubernetes_version: "v1.28.0"
-    artifacts: "iso,raw"
-    security_checks: "grype,trivy"
-    sign_artifacts: true
-```
-
-## 🏗️ Dual-Structure Pattern
-
-This action follows a dual-structure pattern that provides flexibility for different use cases:
-
-### Option 1: Reusable Workflow (Recommended for Consumers)
-
-Use the reusable workflow for better GitHub UI visibility and simpler configuration:
 
 ```yaml
 jobs:
   build:
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     with:
-      version: "v1.0.0"
+      version: "auto"
+      base_image: "ubuntu:24.04"
+      kubernetes_distro: "k3s"
+      kubernetes_version: "v1.28.0"
       iso: true
-      summary_artifacts: true
-      push_repository: "ghcr.io/user/repo"
-      push_repository_username: ${{ secrets.GITHUB_TOKEN }}
-      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-
-**Benefits:**
-- ✅ Expanded step visibility in GitHub UI
-- ✅ Marketplace publishing support
-- ✅ Boolean inputs for individual artifact types and security checks
-- ✅ Simplified configuration
-
-### Option 2: Composite Action (Advanced Use Cases)
-
-Use the composite action directly for maximum control:
-
-```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: kairos-io/kairos-factory-action@v1
-        with:
-          version: "v1.0.0"
-          artifacts: "iso,raw"
-          security_checks: "grype,trivy"
-          sign_artifacts: true
 ```
 
-**Benefits:**
-- ✅ Direct control over all inputs
-- ✅ Comma-separated lists for artifacts and security checks
-- ✅ Advanced customization options
-
-### Input Compatibility
-
-Both approaches support the same functionality. The reusable workflow automatically converts boolean inputs to the appropriate format for the composite action:
-
-| Reusable Workflow | Composite Action | Description |
-|-------------------|------------------|-------------|
-| `iso: true` | `artifacts: "iso"` | Generate ISO artifact |
-| `raw: true, iso: true` | `artifacts: "iso,raw"` | Generate multiple artifacts |
-| `cosign: true` | `sign_artifacts: true` | Sign artifacts with cosign |
-| `grype: true` | `security_checks: "grype"` | Run Grype security scan |
-
 ## 📋 Inputs
-
-### Dockerfile Path
-
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `dockerfile_path` | Path to the Dockerfile to use for building | ❌ | `images/Dockerfile` |
 
 ### Core Build Parameters
 
@@ -155,27 +61,39 @@ Both approaches support the same functionality. The reusable workflow automatica
 | `kubernetes_version` | Kubernetes version (auto or specific version) | ❌ | `auto` |
 | `trusted_boot` | Enable trusted boot support | ❌ | `false` |
 
+### Dockerfile Configuration
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `dockerfile_path` | Path to the Dockerfile to use for building | ❌ | [Downloads from Kairos repo](https://github.com/kairos-io/kairos/blob/master/images/Dockerfile) |
+| `kairos_version` | Kairos version for fallback Dockerfile | ❌ | `v3.5.0` |
+
 ### Artifact Generation
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `artifacts` | Comma-separated artifacts (iso,raw,vhd,gce,tar) | ❌ | `iso` |
+| `iso` | Generate ISO artifact | ❌ | `false` |
+| `raw` | Generate RAW disk image | ❌ | `false` |
+| `compute_checksums` | Compute SHA256 checksums for artifacts | ❌ | `true` |
 | `output_format` | Output format override (auto, docker, oci) | ❌ | `auto` |
 
 ### Security & Signing
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `security_checks` | Comma-separated checks (cosign,grype,trivy) | ❌ | - |
-| `sign_artifacts` | Sign generated artifacts with cosign | ❌ | `false` |
+| `grype` | Run Grype security scan | ❌ | `false` |
+| `trivy` | Run Trivy security scan | ❌ | `false` |
+| `grype_sarif` | Generate Grype SARIF report | ❌ | `false` |
+| `trivy_sarif` | Generate Trivy SARIF report | ❌ | `false` |
+| `cosign` | Sign generated artifacts with cosign | ❌ | `false` |
 
 ### Publishing
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `push_repository` | Repository to push to (e.g., ghcr.io/user/repo) | ❌ | - |
-| `push_repository_username` | Username for authentication | ❌ | - |
-| `push_repository_password` | Password/token for authentication | ❌ | - |
+| `registry_domain` | Container registry domain to push to | ❌ | - |
+| `registry_namespace` | Namespace/organization in the registry URL | ❌ | - |
+| `registry_repository` | Repository name in the registry | ❌ | Uses flavor name |
 
 ### Output & Reporting
 
@@ -183,6 +101,50 @@ Both approaches support the same functionality. The reusable workflow automatica
 |-------|-------------|----------|---------|
 | `summary_artifacts` | Add artifact links to GitHub Summary | ❌ | `false` |
 | `auroraboot_version` | Auroraboot version to use | ❌ | `latest` |
+| `release` | Create a GitHub release for artifacts | ❌ | `false` |
+| `list_release_artifacts` | List artifacts in GitHub summary | ❌ | `false` |
+
+### Custom Naming
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `custom_tag_format` | Custom tag format using variables | ❌ | Default format |
+| `custom_artifact_format` | Custom artifact filename format | ❌ | Auroraboot default |
+| `custom_job_name_format` | Custom job name format | ❌ | Default format |
+| `image_labels` | Image labels to add to the image | ❌ | - |
+
+### Trusted Boot Configuration
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `keys_dir` | Path to trusted boot keys directory | ❌ | - |
+| `sysext_dir` | Path to system extensions overlay | ❌ | - |
+| `single_efi_cmdline` | Single EFI command line for trusted boot | ❌ | - |
+
+### Cloud Configuration
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `cloud_config` | Cloud-config file path or URL | ❌ | - |
+
+## 🔧 Supported Models
+
+- **generic**: Standard x86_64/ARM64 builds
+- **rpi3/**: Raspberry Pi 3/4 builds
+- **nvidia-jetson-agx-orin**: NVIDIA Jetson AGX Orin builds
+
+## 🔧 Supported Artifacts
+
+- **iso**: Bootable ISO images (generic model only)
+- **raw**: Raw disk images (most models except rpi3, generic, nvidia-jetson)
+
+## 🔒 Security Features
+
+- **Grype scanning**: Anchore's vulnerability scanner with JSON and SARIF output
+- **Trivy scanning**: Aqua Security's comprehensive scanner with SARIF support
+- **Cosign signing**: Sigstore's digital signing for images and artifacts
+- **Trusted boot**: UKI support for secure boot with custom keys
+- **SARIF integration**: Upload scan results to GitHub Security tab
 
 ## 📤 Outputs
 
@@ -194,103 +156,83 @@ Both approaches support the same functionality. The reusable workflow automatica
 
 ## 🏗️ Examples
 
-### Basic Build (Reusable Workflow)
-```yaml
-jobs:
-  build:
-    uses: kairos-io/kairos-factory-action/.github/workflows/build-factory.yaml@main
-    with:
-      version: "1.0.0"
-      base_image: "ubuntu:24.04"
-      model: "generic"
-      iso: true
-      summary_artifacts: true
-```
+### Security-Focused Build with Trusted Boot
 
-### Building with Custom Dockerfile
 ```yaml
-# Use this when you have a custom Dockerfile path
 jobs:
   build:
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     with:
-      dockerfile_path: "custom/path/Dockerfile"  # Custom Dockerfile location
+      version: "auto"
+      kubernetes_distro: "k3s"
+      grype: true
+      trivy: true
+      grype_sarif: true
+      trivy_sarif: true
+      cosign: true
+      trusted_boot: true
+      keys_dir: "./keys"
+      iso: true
+      summary_artifacts: true
+```
+
+### Custom Dockerfile
+
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      dockerfile_path: "custom/path/Dockerfile"
       version: "auto"
       base_image: "ubuntu:24.04"
       model: "generic"
-      arch: "amd64"
-      iso: true
+      summary_artifacts: true
+```
+
+### Specialized Models
+
+```yaml
+jobs:
+  build-rpi:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      model: "rpi4"
+      arch: "arm64"
+      kubernetes_distro: "k3s"
       raw: true
       summary_artifacts: true
 ```
 
-### Multi-Architecture Release (Reusable Workflow)
+### With Cloud Configuration
+
 ```yaml
 jobs:
   build:
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     with:
       version: "auto"
-      arch: ${{ matrix.arch }}
+      base_image: "ubuntu:24.04"
       kubernetes_distro: "k3s"
       iso: true
-      push_repository: "ghcr.io/${{ github.repository }}"
-      push_repository_username: ${{ github.actor }}
-      push_repository_password: ${{ secrets.GITHUB_TOKEN }}
-
-### Specialized Models
-```yaml
-# Raspberry Pi
-- uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "auto"
-    model: "rpi3"
-    arch: "arm64"
-    kubernetes_distro: "k3s"
-
-# NVIDIA Jetson
-- uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "auto"
-    model: "nvidia-jetson-agx-orin"
-    arch: "arm64"
-    artifacts: "raw"
+      cloud_config: "path/to/cloud-config.yml"
+      summary_artifacts: true
 ```
 
-### Security-Focused Build
-```yaml
-- uses: kairos-io/kairos-factory-action@v1
-  with:
-    version: "auto"
-    kubernetes_distro: "k3s"
-    security_checks: "grype,trivy"
-    sign_artifacts: true
-    trusted_boot: true
-```
+## 🔧 Custom Naming Variables
 
-## 🔧 Supported Models
+The following variables can be used in custom tag, artifact, and job name formats:
 
-- **generic**: Standard x86_64/ARM64 builds
-- **rpi3**: Raspberry Pi 3/4 builds
-- **nvidia-jetson-agx-orin**: NVIDIA Jetson AGX Orin builds
-
-## 🔧 Supported Artifacts
-
-- **iso**: Bootable ISO images (generic model only)
-- **raw**: Raw disk images (most models except rpi3, generic, nvidia-jetson)
-- **vhd**: Virtual Hard Disk images (coming soon)
-- **gce**: Google Compute Engine images (coming soon)
-- **tar**: TAR archives (coming soon)
-
-## 🔒 Security Features
-
-- **Grype scanning**: Anchore's vulnerability scanner
-- **Trivy scanning**: Aqua Security's comprehensive scanner
-- **Cosign signing**: Sigstore's digital signing
-- **Trusted boot**: UKI support for secure boot
+- `$FLAVOR_RELEASE`: Base image flavor and release (e.g., ubuntu-24.04)
+- `$VARIANT`: Build variant (core or standard)
+- `$ARCH`: Target architecture (amd64 or arm64)
+- `$MODEL`: Target model (generic, rpi3, etc.)
+- `$VERSION`: Build version
+- `$KUBERNETES_DISTRO`: Kubernetes distribution (k3s, k0s)
+- `$KUBERNETES_VERSION`: Kubernetes version
+- `$UKI`: UKI suffix if trusted boot is enabled
+- `$COMMIT_SHA`: Git commit SHA
 
 ## 📚 Documentation
 
