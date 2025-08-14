@@ -127,6 +127,34 @@ jobs:
 |-------|-------------|----------|---------|
 | `cloud_config` | Cloud-config file path or URL | ❌ | - |
 
+## 🔐 Secrets
+
+The reusable workflow supports the following secrets for authentication and signing:
+
+| Secret | Description | Required | Usage |
+|--------|-------------|----------|-------|
+| `registry_username` | Username for container registry authentication | ❌ | Used when `registry_domain` is provided |
+| `registry_password` | Password/token for container registry authentication | ❌ | Used when `registry_domain` is provided |
+
+### Registry Authentication
+
+When pushing images to a container registry, you'll need to provide authentication credentials:
+
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    secrets:
+      registry_username: ${{ secrets.REGISTRY_USERNAME }}
+      registry_password: ${{ secrets.REGISTRY_PASSWORD }}
+    with:
+      version: "auto"
+      registry_domain: "ghcr.io"
+      registry_namespace: "myorg"
+      registry_repository: "kairos"
+      iso: true
+```
+
 ## 🔧 Supported Models
 
 - **generic**: Standard x86_64/ARM64 builds
