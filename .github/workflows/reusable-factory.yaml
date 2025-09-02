@@ -200,6 +200,10 @@ jobs:
       - name: Validate inputs and setup Dockerfile
         shell: bash
         run: |
+          # Create a temporary directory for downloaded files (needed for fallback cases)
+          TEMP_DIR=$(mktemp -d)
+          echo "📁 Created temporary directory: $TEMP_DIR"
+          
           # Check if user provided a dockerfile_path
           if [[ -n "${{ inputs.dockerfile_path }}" ]]; then
             # User provided a path - validate it exists
@@ -216,10 +220,6 @@ jobs:
             # User didn't provide a path - download fallback
             echo "📥 No Dockerfile path provided, downloading fallback from Kairos ${{ inputs.kairos_version }}"
             
-            # Create a temporary directory for the fallback Dockerfile
-            TEMP_DIR=$(mktemp -d)
-            echo "📁 Created temporary directory: $TEMP_DIR"
-            
             # Download the default Kairos Dockerfile to temp directory
             echo "📥 Downloading default Kairos Dockerfile from https://github.com/kairos-io/kairos/blob/${{ inputs.kairos_version }}/images/Dockerfile"
             curl -L "https://raw.githubusercontent.com/kairos-io/kairos/${{ inputs.kairos_version }}/images/Dockerfile" -o "$TEMP_DIR/Dockerfile"
@@ -230,6 +230,21 @@ jobs:
               echo "DOCKERFILE_PATH=$TEMP_DIR/Dockerfile" >> $GITHUB_ENV
             else
               echo "❌ Error: Failed to download default Dockerfile"
+              exit 1
+            fi
+          fi
+          
+          # Download Dockerfile.img only if RAW builds are requested
+          if [[ "${{ inputs.raw }}" == "true" ]]; then
+            echo "📥 Downloading Kairos Dockerfile.img for RAW builds from https://github.com/kairos-io/kairos/blob/${{ inputs.kairos_version }}/images/Dockerfile.img"
+            curl -L "https://raw.githubusercontent.com/kairos-io/kairos/${{ inputs.kairos_version }}/images/Dockerfile.img" -o "$TEMP_DIR/Dockerfile.img"
+            
+            if [ -f "$TEMP_DIR/Dockerfile.img" ]; then
+              echo "✅ Successfully downloaded Dockerfile.img to $TEMP_DIR/Dockerfile.img"
+              # Update the dockerfile_img_path to use the downloaded file
+              echo "DOCKERFILE_IMG_PATH=$TEMP_DIR/Dockerfile.img" >> $GITHUB_ENV
+            else
+              echo "❌ Error: Failed to download Dockerfile.img"
               exit 1
             fi
           fi
@@ -755,7 +770,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: images/Dockerfile.img
+          file: ${{ env.DOCKERFILE_IMG_PATH }}
           platforms: linux/${{ inputs.arch }}
           push: true
           tags: ${{ steps.setup.outputs.image_tag }}-img
