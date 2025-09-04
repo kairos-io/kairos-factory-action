@@ -15,7 +15,7 @@ on:
       # Kairos version for fallback Dockerfile
       kairos_version:
         type: string
-        default: "v3.5.0"
+        default: "v3.5.2"
         description: "Kairos version to use when downloading the fallback Dockerfile"
       
       # Core build parameters
