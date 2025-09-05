@@ -16,6 +16,17 @@ A GitHub Actions reusable workflow for building Kairos immutable images and arti
 - **GitHub Summary**: Rich build summaries with artifact links
 - **Custom naming**: Flexible tag and artifact naming formats
 - **Cloud config support**: Integration with cloud-init configurations
+- **Automatic updates**: Renovate integration keeps Kairos version up-to-date
+
+## 🔄 Automatic Updates
+
+This action is configured with [Renovate](https://docs.renovatebot.com/) to automatically update the default `kairos_version` when new Kairos releases are available. The `renovate.json` configuration monitors the [kairos-io/kairos repository](https://github.com/kairos-io/kairos/releases) and creates pull requests to update the default version in the workflow.
+
+### How it works:
+- Renovate checks for new releases from `kairos-io/kairos` 
+- When a new release is found, it automatically creates a PR to update the `kairos_version` default value
+- The regex manager detects and updates the version string in `.github/workflows/reusable-factory.yaml`
+- PRs include the changelog and release notes for easy review
 
 ## 🚀 Quick Start
 
@@ -66,7 +77,7 @@ jobs:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `dockerfile_path` | Path to the Dockerfile to use for building | ❌ | [Downloads from Kairos repo](https://github.com/kairos-io/kairos/blob/master/images/Dockerfile) |
-| `kairos_version` | Kairos version for fallback Dockerfile | ❌ | `v3.5.0` |
+| `kairos_version` | Kairos version for fallback Dockerfile | ❌ | `v3.5.2` |
 
 ### Artifact Generation
 
