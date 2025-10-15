@@ -816,6 +816,8 @@ jobs:
       - name: Install Cosign
         if: inputs.cosign
         uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: "v2.6.1"
 
       - name: Sign image and artifact checksums with cosign
         if: inputs.cosign && inputs.registry_domain != ''
