@@ -833,7 +833,7 @@ jobs:
           echo "🔏 Signing artifact checksums"
           for checksum in artifacts/*.sha256; do
             if [[ -f "$checksum" ]]; then
-              cosign sign-blob --yes --output-certificate="${checksum}.pem" --output-signature="${checksum}.sig" "$checksum"
+              cosign sign-blob --yes --bundle="${checksum}.bundle" --output-certificate="${checksum}.pem" --output-signature="${checksum}.sig" "$checksum"
               echo "✅ Signed checksum: $checksum"
             fi
           done
@@ -850,6 +850,8 @@ jobs:
             artifacts/*.iso
             artifacts/*.iso.sha256
             artifacts/*.iso.sha256.sig
+            artifacts/*.iso.sha256.bundle
+            artifacts/*.iso.sha256.pem
       - name: List Release Artifacts
         if: inputs.list_release_artifacts
         shell: bash
