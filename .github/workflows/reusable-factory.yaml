@@ -11,60 +11,64 @@ on:
       # Dockerfile path
       dockerfile_path:
         type: string
-      
+
       # Kairos version for fallback Dockerfile
       kairos_version:
         type: string
         default: "v3.5.2"
         description: "Kairos version to use when downloading the fallback Dockerfile"
-      
+
       # Core build parameters
       base_image:
         type: string
         default: "ubuntu:24.04"
-      
+
       model:
         type: string
         default: "generic"
-      
+
       arch:
         type: string
         default: "amd64"
-      
+
       kubernetes_distro:
         type: string
         required: false
         description: "Kubernetes distribution to include. Must be either 'k0s' or 'k3s'. If not specified, no Kubernetes distribution will be included."
-      
+
       kubernetes_version:
         type: string
         default: "auto"
-      
+
       version:
         type: string
         required: true
-      
+
       trusted_boot:
         type: boolean
         default: false
-      
+
+      no_cache:
+        type: boolean
+        default: false
+
       # Individual artifact types
       iso:
         type: boolean
         default: false
-      
+
       raw:
         type: boolean
         default: false
-      
+
       vhd:
         type: boolean
         default: false
-      
+
       gce:
         type: boolean
         default: false
-      
+
       tar:
         type: boolean
         default: false
@@ -73,25 +77,25 @@ on:
       compute_checksums:
         type: boolean
         default: true
-      
+
       output_format:
         type: string
         default: "auto"
-      
+
       # Security and signing
       security_checks:
         type: string
         default: ""
-      
+
       # Individual security checks
       cosign:
         type: boolean
         default: false
-      
+
       grype:
         type: boolean
         default: false
-      
+
       trivy:
         type: boolean
         default: false
@@ -100,40 +104,40 @@ on:
       grype_sarif:
         type: boolean
         default: false
-      
+
       trivy_sarif:
         type: boolean
         default: false
-      
+
       # Publishing
       registry_domain:
         type: string
         description: "Container registry domain to push to"
-      
+
       registry_namespace:
         type: string
         description: "Namespace/organization in the registry URL"
-      
+
       registry_repository:
         type: string
         required: false
         description: "Repository name in the registry (defaults to $FLAVOR if not specified)"
-      
+
       # Output and reporting
       summary_artifacts:
         type: boolean
         default: false
-      
+
       auroraboot_version:
         type: string
         default: "latest"
-      
+
       # Custom tag format
       custom_tag_format:
         type: string
         required: false
         description: "Custom tag format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses default format."
-      
+
       custom_artifact_format:
         type: string
         required: false
@@ -143,18 +147,18 @@ on:
         type: string
         required: false
         description: "Custom job name format using variables like $FLAVOR_RELEASE, $VARIANT, $ARCH, $MODEL, $VERSION, $KUBERNETES_DISTRO, $KUBERNETES_VERSION, $UKI, $COMMIT_SHA. If not provided, uses default format."
-      
+
       image_labels:
         type: string
         required: false
         description: "Image labels to add to the image"
-      
+
       # Trusted boot inputs
       keys_dir:
         type: string
         required: false
         description: "Path to directory containing trusted boot keys (required when trusted_boot is true)"
-      
+
       sysext_dir:
         type: string
         required: false
@@ -164,13 +168,13 @@ on:
         type: string
         required: false
         description: "Single EFI command line to use for trusted boot (optional, only used when trusted_boot is true)"
-      
+
       # Cloud config (file path or URL)
       cloud_config:
         type: string
         required: false
         description: "Cloud-config file path or URL passed to auroraboot via --cloud-config. If empty, not passed."
-      
+
       release:
         type: boolean
         default: false
@@ -203,7 +207,7 @@ jobs:
           # Create a temporary directory for downloaded files (needed for fallback cases)
           TEMP_DIR=$(mktemp -d)
           echo "📁 Created temporary directory: $TEMP_DIR"
-          
+
           # Check if user provided a dockerfile_path
           if [[ -n "${{ inputs.dockerfile_path }}" ]]; then
             # User provided a path - validate it exists
@@ -219,11 +223,11 @@ jobs:
           else
             # User didn't provide a path - download fallback
             echo "📥 No Dockerfile path provided, downloading fallback from Kairos ${{ inputs.kairos_version }}"
-            
+
             # Download the default Kairos Dockerfile to temp directory
             echo "📥 Downloading default Kairos Dockerfile from https://github.com/kairos-io/kairos/blob/${{ inputs.kairos_version }}/images/Dockerfile"
             curl -L "https://raw.githubusercontent.com/kairos-io/kairos/${{ inputs.kairos_version }}/images/Dockerfile" -o "$TEMP_DIR/Dockerfile"
-            
+
             if [ -f "$TEMP_DIR/Dockerfile" ]; then
               echo "✅ Successfully downloaded default Dockerfile to $TEMP_DIR/Dockerfile"
               # Update the dockerfile_path to use the downloaded file
@@ -233,12 +237,12 @@ jobs:
               exit 1
             fi
           fi
-          
+
           # Download Dockerfile.img only if RAW builds are requested
           if [[ "${{ inputs.raw }}" == "true" ]]; then
             echo "📥 Downloading Kairos Dockerfile.img for RAW builds from https://github.com/kairos-io/kairos/blob/${{ inputs.kairos_version }}/images/Dockerfile.img"
             curl -L "https://raw.githubusercontent.com/kairos-io/kairos/${{ inputs.kairos_version }}/images/Dockerfile.img" -o "$TEMP_DIR/Dockerfile.img"
-            
+
             if [ -f "$TEMP_DIR/Dockerfile.img" ]; then
               echo "✅ Successfully downloaded Dockerfile.img to $TEMP_DIR/Dockerfile.img"
               # Update the dockerfile_img_path to use the downloaded file
@@ -248,13 +252,13 @@ jobs:
               exit 1
             fi
           fi
-          
+
           # Validate required inputs
           if [[ -z "${{ inputs.version }}" ]]; then
             echo "❌ Error: version is required"
             exit 1
           fi
-          
+
           # Validate kubernetes_distro values
           if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
             case "${{ inputs.kubernetes_distro }}" in
@@ -266,7 +270,7 @@ jobs:
                 ;;
             esac
           fi
-          
+
           # Validate arch values
           case "${{ inputs.arch }}" in
             amd64|arm64)
@@ -276,7 +280,7 @@ jobs:
               exit 1
               ;;
           esac
-          
+
           echo "✅ Input validation passed"
 
 
@@ -291,7 +295,7 @@ jobs:
           else
             VARIANT="core"
           fi
-          
+
           # Handle version resolution
           if [[ "${{ inputs.version }}" == "auto" ]]; then
             VERSION=$(git describe --tags --dirty --always)
@@ -314,18 +318,18 @@ jobs:
             KAIROS_VERSION="${{ inputs.kairos_version }}"
           fi
           echo "KAIROS_VERSION=$KAIROS_VERSION" >> $GITHUB_ENV
-          
+
           # Handle kubernetes version resolution
           if [[ "${{ inputs.kubernetes_version }}" == "auto" ]]; then
             KUBERNETES_VERSION=""
           else
             KUBERNETES_VERSION="${{ inputs.kubernetes_version }}"
           fi
-          
+
           # Split base image for tag generation
           BASE_IMAGE=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 1)
           BASE_TAG=$(echo "${{ inputs.base_image }}" | cut -d ':' -f 2 || echo 'latest')
-          
+
           # Handle special cases for base images with slashes
           if [[ "$BASE_IMAGE" == *"/"* ]]; then
             DISTRO=$(echo "$BASE_IMAGE" | cut -d '/' -f 1)
@@ -336,37 +340,37 @@ jobs:
             FLAVOR="$BASE_IMAGE"
             FLAVOR_RELEASE="$BASE_TAG"
           fi
-          
+
           # Special case for nvidia
           if [[ "${{ inputs.model }}" == "nvidia-jetson-agx-orin" ]]; then
             FLAVOR="ubuntu"
             FLAVOR_RELEASE="22.04"
           fi
-          
+
           # Generate image tag
           # Replace + with - in kubernetes version for tag compatibility
           SANITIZED_KUBERNETES_VERSION=$(echo "$KUBERNETES_VERSION" | sed 's/+/-/g')
-          
+
           # Set UKI suffix if trusted boot is enabled
           UKI_SUFFIX=""
           if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
             UKI_SUFFIX="-uki"
           fi
-          
+
           # Define variables for tag generation
           ARCH="${{ inputs.arch }}"
           MODEL="${{ inputs.model }}"
           KUBERNETES_DISTRO="${{ inputs.kubernetes_distro }}"
           UKI="$UKI_SUFFIX"
           COMMIT_SHA="${{ github.sha }}"
-          
+
           # Generate default tag
           if [[ -n "$KUBERNETES_VERSION" ]]; then
             DEFAULT_TAG="$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION-$KUBERNETES_DISTRO-$SANITIZED_KUBERNETES_VERSION$UKI"
           else
             DEFAULT_TAG="$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION$UKI"
           fi
-          
+
           # Use custom tag format if provided, otherwise use default
           if [[ -n "${{ inputs.custom_tag_format }}" ]]; then
             # Shell will automatically expand variables in the format
@@ -374,18 +378,18 @@ jobs:
           else
             TAG="$DEFAULT_TAG"
           fi
-          
+
           # Determine registry, namespace, and repository
           REGISTRY="${{ inputs.registry_domain }}"
           NAMESPACE="${{ inputs.registry_namespace }}"
-          
+
           # Use registry_repository if specified, otherwise use FLAVOR
           if [[ -n "${{ inputs.registry_repository }}" ]]; then
             REPOSITORY="${{ inputs.registry_repository }}"
           else
             REPOSITORY="$FLAVOR"
           fi
-          
+
           IMAGE_TAG=""
           # Build image tag
           if [[ -n "$REGISTRY" ]]; then
@@ -400,7 +404,7 @@ jobs:
           IMAGE_TAG="$IMAGE_TAG$TAG"
 
           echo "IMAGE_NAME=$IMAGE_TAG" >> $GITHUB_ENV
-          
+
           # Generate artifact name
           if [[ -n "${{ inputs.custom_artifact_format }}" ]]; then
             # Shell will automatically expand variables in the format
@@ -408,15 +412,15 @@ jobs:
           else
             # Generate default artifact name format
             DEFAULT_ARTIFACT_NAME="kairos-$FLAVOR_RELEASE-$VARIANT-$ARCH-$MODEL-$VERSION"
-            
+
             # Append kubernetes distro and version if defined
             if [[ -n "$KUBERNETES_DISTRO" ]]; then
               DEFAULT_ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME-$KUBERNETES_DISTRO-$SANITIZED_KUBERNETES_VERSION"
             fi
-            
+
             # Append UKI suffix if trusted boot is enabled
             DEFAULT_ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME$UKI"
-            
+
             ARTIFACT_NAME="$DEFAULT_ARTIFACT_NAME"
           fi
 
@@ -454,7 +458,7 @@ jobs:
           echo "keys_dir=$KEYS_DIR" >> $GITHUB_OUTPUT
           echo "sysext_dir=$SYSEXT_DIR" >> $GITHUB_OUTPUT
           echo "single_efi_cmdline=$SINGLE_EFI_CMDLINE" >> $GITHUB_OUTPUT
-          
+
           echo "🔧 Environment setup complete"
           echo "   Variant: $VARIANT"
           echo "   Version: $VERSION"
@@ -500,6 +504,7 @@ jobs:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
           platforms: linux/${{ inputs.arch }}
+          no-cache: ${{ inputs.no_cache }}
           push: false
           load: true
           tags: ${{ steps.setup.outputs.image_tag }}
@@ -632,7 +637,7 @@ jobs:
           echo "🔍 Debug: Starting ISO generation step"
           echo "   Inputs: iso=${{ inputs.iso }}, model=${{ inputs.model }}"
           echo "   Image tag: ${{ steps.setup.outputs.image_tag }}"
-          
+
           mkdir -p artifacts
           echo "   Using image: ${{ steps.setup.outputs.image_tag }}"
 
@@ -699,11 +704,11 @@ jobs:
             fi
 
             DOCKER_CMD="$DOCKER_CMD docker:${{ steps.setup.outputs.image_tag }}"
-            
+
             echo "🔧 Executing: $DOCKER_CMD"
             eval $DOCKER_CMD
 
-          
+
           ISO_FILE=$(ls artifacts/*.iso | head -1)
           if [[ -n "$ISO_FILE" ]]; then
             echo "✅ ISO generated: $ISO_FILE"
@@ -753,7 +758,7 @@ jobs:
 
           echo "🔧 Executing: $DOCKER_CMD"
           eval $DOCKER_CMD
-          
+
           RAW_FILE=$(ls artifacts/*.raw | head -1)
           if [[ -n "$RAW_FILE" ]]; then
             echo "✅ RAW generated: $RAW_FILE"
@@ -826,7 +831,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          
+
           echo "🔏 Signing image in registry: ${{ steps.setup.outputs.image_tag }}"
           cosign sign ${{ steps.setup.outputs.image_tag }}
 
@@ -877,18 +882,18 @@ jobs:
           echo "- Architecture: \`${{ inputs.arch }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Variant: \`${{ steps.setup.outputs.variant }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Version: \`${{ steps.setup.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          
+
           if [[ -n "${{ inputs.kubernetes_distro }}" ]]; then
             echo "- Kubernetes: \`${{ inputs.kubernetes_distro }}\` \`${{ steps.setup.outputs.kubernetes_version }}\`" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
             echo "- Trusted Boot: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Generated Artifacts:**" >> $GITHUB_STEP_SUMMARY
-          
+
           ARTIFACT_COUNT=0
           for artifact in artifacts/*.iso artifacts/*.raw artifacts/*.vhd artifacts/*.tar; do
             if [[ -f "$artifact" ]]; then
@@ -896,11 +901,11 @@ jobs:
               ARTIFACT_COUNT=$((ARTIFACT_COUNT + 1))
             fi
           done
-          
+
           if [[ $ARTIFACT_COUNT -eq 0 ]]; then
             echo "- No artifacts generated" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [[ "${{ inputs.cosign }}" == "true" && "${{ inputs.registry_domain }}" != "" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security:**" >> $GITHUB_STEP_SUMMARY
@@ -914,7 +919,7 @@ jobs:
             echo "**Security:**" >> $GITHUB_STEP_SUMMARY
             echo "- ⚠️  Cosign signing skipped (requires registry_domain)" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Check which security scans were run
           SECURITY_SCANS=()
           if [[ "${{ inputs.grype }}" == "true" ]]; then
@@ -923,7 +928,7 @@ jobs:
           if [[ "${{ inputs.trivy }}" == "true" ]]; then
             SECURITY_SCANS+=("trivy")
           fi
-          
+
           if [[ ${#SECURITY_SCANS[@]} -gt 0 ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security Scans:**" >> $GITHUB_STEP_SUMMARY
