@@ -581,7 +581,7 @@ jobs:
       - name: Run Grype security scan
         if: inputs.grype
         id: grype
-        uses: anchore/scan-action@1638637db639e0ade3258b51db49a9a137574c3e # v6.5.1
+        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
         with:
           image: ${{ steps.setup.outputs.image_tag }}
           output-format: json
@@ -632,7 +632,7 @@ jobs:
 
       - name: Generate Grype SARIF
         if: inputs.grype_sarif
-        uses: anchore/scan-action@1638637db639e0ade3258b51db49a9a137574c3e # v6.5.1
+        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
         with:
           image: ${{ steps.setup.outputs.image_tag }}
           output-format: sarif
