@@ -614,7 +614,7 @@ jobs:
 
       - name: Run Trivy security scan
         if: inputs.trivy
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
         with:
           image-ref: ${{ steps.setup.outputs.image_tag }}
           format: table
@@ -622,7 +622,7 @@ jobs:
 
       - name: Run Trivy SARIF scan
         if: inputs.trivy_sarif
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
         with:
           image-ref: ${{ steps.setup.outputs.image_tag }}
           format: sarif
