@@ -15,13 +15,13 @@ on:
       # Kairos version for fallback Dockerfile
       kairos_version:
         type: string
-        default: "v3.5.2"
+        default: "v4.0.0"
         description: "Kairos version to use when downloading the fallback Dockerfile"
 
       # Core build parameters
       base_image:
         type: string
-        default: "ubuntu:24.04"
+        default: "ghcr.io/kairos-io/hadron:v0.0.4"
 
       model:
         type: string
