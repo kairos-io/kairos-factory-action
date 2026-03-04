@@ -128,8 +128,8 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `keys_dir` | Path to trusted boot keys directory | ❌ | - |
-| `sysext_dir` | Path to system extensions overlay | ❌ | - |
+| `keys_dir` | Absolute path to trusted boot keys directory (use `${{ github.workspace }}`) | ❌ | - |
+| `sysext_dir` | Absolute path to system extensions overlay (use `${{ github.workspace }}`) | ❌ | - |
 | `single_efi_cmdline` | Single EFI command line for trusted boot | ❌ | - |
 
 ### Cloud Configuration
@@ -210,10 +210,12 @@ jobs:
       trivy_sarif: true
       cosign: true
       trusted_boot: true
-      keys_dir: "./keys"
+      keys_dir: "${{ github.workspace }}/tests/assets/keys"
       iso: true
       summary_artifacts: true
 ```
+
+Use absolute paths for `keys_dir` and `sysext_dir` in GitHub Actions workflows. Prefer `${{ github.workspace }}/...`.
 
 ### Custom Dockerfile
 
