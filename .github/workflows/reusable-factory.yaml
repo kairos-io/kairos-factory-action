@@ -553,7 +553,7 @@ jobs:
 
       - name: Login to registry
         if: inputs.registry_domain != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry_domain }}
           username: ${{ secrets.registry_username }}
