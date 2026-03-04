@@ -832,7 +832,7 @@ jobs:
           fi
 
       - name: Create OCI artifact from RAW image
-        if: inputs.raw
+        if: inputs.raw && inputs.registry_domain != ''
         uses: docker/build-push-action@v6
         with:
           context: .
