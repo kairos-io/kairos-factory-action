@@ -18,7 +18,6 @@ concurrency:
 jobs:
   showcase-core-amd64-debian:
     name: showcase-core-amd64-debian
-    continue-on-error: true
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     secrets: inherit
     with:
@@ -30,7 +29,6 @@ jobs:
 
   showcase-arm64-jetson-ubuntu:
     name: showcase-arm64-jetson-ubuntu
-    continue-on-error: true
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     secrets: inherit
     with:
@@ -43,7 +41,6 @@ jobs:
 
   showcase-uki-amd64-fedora-k3s:
     name: showcase-uki-amd64-fedora-k3s
-    continue-on-error: true
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     secrets: inherit
     with:
@@ -60,7 +57,6 @@ jobs:
 
   showcase-raw-arm64-rpi4-opensuse-leap-k3s:
     name: showcase-raw-arm64-rpi4-opensuse-leap-k3s
-    continue-on-error: true
     uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
     secrets: inherit
     with:
