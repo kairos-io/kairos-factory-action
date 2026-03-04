@@ -707,10 +707,18 @@ jobs:
             DOCKER_CMD="$DOCKER_CMD -v $PWD/artifacts:/output"
 
             if [[ "${{ inputs.trusted_boot }}" == "true" ]]; then
-              DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.keys_dir }}:/keys"
+              KEYS_DIR_INPUT="${{ inputs.keys_dir }}"
+              if [[ "$KEYS_DIR_INPUT" != /* ]]; then
+                KEYS_DIR_INPUT="$PWD/$KEYS_DIR_INPUT"
+              fi
+              DOCKER_CMD="$DOCKER_CMD -v \"$KEYS_DIR_INPUT\":/keys"
 
               if [[ -n "${{ inputs.sysext_dir }}" ]]; then
-                DOCKER_CMD="$DOCKER_CMD -v ${{ inputs.sysext_dir }}:/overlay"
+                SYSEXT_DIR_INPUT="${{ inputs.sysext_dir }}"
+                if [[ "$SYSEXT_DIR_INPUT" != /* ]]; then
+                  SYSEXT_DIR_INPUT="$PWD/$SYSEXT_DIR_INPUT"
+                fi
+                DOCKER_CMD="$DOCKER_CMD -v \"$SYSEXT_DIR_INPUT\":/overlay"
               fi
             fi
 

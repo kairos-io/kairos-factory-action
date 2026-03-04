@@ -47,7 +47,7 @@ jobs:
       version: auto
       kubernetes_distro: k3s
       trusted_boot: true
-      keys_dir: ${{ github.workspace }}/.github/assets/uki-test-keys
+      keys_dir: .github/assets/uki-test-keys
       single_efi_cmdline: "showcase-entry: present"
       iso: true
       summary_artifacts: true
