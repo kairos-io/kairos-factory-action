@@ -560,7 +560,7 @@ jobs:
           password: ${{ secrets.registry_password }}
 
       - name: Build Kairos image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
@@ -673,7 +673,7 @@ jobs:
 
       - name: Push Kairos image (build and push with SBOM)
         if: inputs.registry_domain != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ env.DOCKERFILE_PATH }}
@@ -841,7 +841,7 @@ jobs:
 
       - name: Create OCI artifact from RAW image
         if: inputs.raw && inputs.registry_domain != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ env.DOCKERFILE_IMG_PATH }}
