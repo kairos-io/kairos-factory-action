@@ -27,6 +27,7 @@ jobs:
       version: auto
       kubernetes_distro: k3s
       iso: true
+      grype: true
       summary_artifacts: true
 
   smoke-raw-arm64-rpi4-hadron-k0s:
