@@ -10,6 +10,7 @@ A GitHub Actions reusable workflow for building Kairos images and artifacts, wit
 - Optional artifact generation (`iso`, `raw`)
 - Placeholder artifact toggles for `vhd`, `gce`, `tar` (currently not implemented)
 - Optional vulnerability scanning with Grype and Trivy
+- Configurable security scan policy (`legacy`, `enforce`, `report-only`)
 - Optional SARIF generation/upload to GitHub Security
 - Optional registry push with SBOM generation
 - Optional Cosign signing for pushed images and artifact checksums
@@ -60,6 +61,7 @@ All inputs below come from `.github/workflows/reusable-factory.yaml`.
 | `compute_checksums` | boolean | no | `true` | Compute SHA256 checksums for generated artifacts. |
 | `output_format` | string | no | `auto` | Declared input; currently not used by workflow steps. |
 | `security_checks` | string | no | `""` | Declared input; currently not used by workflow steps. |
+| `security_scan_mode` | string | no | `legacy` | Security gate policy: `legacy` (block on Grype criticals), `enforce` (block on enabled scanners), `report-only` (never block on findings). |
 | `cosign` | boolean | no | `false` | Install Cosign and sign pushed images/checksums (requires `registry_domain` for image signing). |
 | `grype` | boolean | no | `false` | Run Grype scan against built image. |
 | `trivy` | boolean | no | `false` | Run Trivy scan against built image. |
@@ -93,10 +95,12 @@ All inputs below come from `.github/workflows/reusable-factory.yaml`.
 
 - `version: auto` uses `git describe --tags --dirty --always`; pure SHA values are normalized to `v0.0.0-<sha>`.
 - `kubernetes_distro` is validated to `k3s`/`k0s`; `arch` is validated to `amd64`/`arm64`.
+- `security_scan_mode` is validated to `legacy`, `enforce`, or `report-only`.
 - ISO generation only runs for `model: generic` (`if: inputs.iso && inputs.model == 'generic'`).
 - RAW generation can optionally publish an additional `-img` OCI image when `registry_domain` is set.
 - VHD/GCE/TAR toggles currently print "not yet implemented" and do not produce artifacts.
 - GitHub Release currently uploads only ISO-related files (`*.iso` and matching checksum/signature files).
+- Grype/Trivy scanner logs print detailed critical findings when present; GitHub summary includes per-scanner pass/fail with critical counts when `summary_artifacts: true`.
 
 ## Custom format variables
 
@@ -124,8 +128,23 @@ jobs:
       version: "auto"
       grype: true
       trivy: true
+      security_scan_mode: report-only
       grype_sarif: true
       trivy_sarif: true
+      summary_artifacts: true
+```
+
+### Enforce security gate
+
+```yaml
+jobs:
+  build:
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      version: "auto"
+      grype: true
+      trivy: true
+      security_scan_mode: enforce
       summary_artifacts: true
 ```
 
