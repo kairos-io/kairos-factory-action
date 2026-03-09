@@ -621,9 +621,13 @@ jobs:
           CRITICAL_COUNT=$(jq '[.matches[]? | select((.vulnerability.severity // "") == "Critical")] | length' "${{ steps.grype.outputs.json }}")
           echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
 
+          jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[]?.path // \"no-path\")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+
           if [[ "$CRITICAL_COUNT" -gt 0 ]]; then
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "❌ Grype found $CRITICAL_COUNT critical vulnerabilities."
+            echo "   Critical findings:"
+            cat grype-critical.txt
           else
             echo "status=passed" >> $GITHUB_OUTPUT
             echo "✅ Grype found no critical vulnerabilities."
@@ -654,9 +658,13 @@ jobs:
           CRITICAL_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL")] | length' trivy.json)
           echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
 
+          jq -r '.Results[]? as $r | $r.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL") | "\(.VulnerabilityID)\t\(.PkgName) \(.InstalledVersion // \"unknown\") -> \($r.Target // \"unknown-target\")"' trivy.json > trivy-critical.txt
+
           if [[ "$CRITICAL_COUNT" -gt 0 ]]; then
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "❌ Trivy found $CRITICAL_COUNT critical vulnerabilities."
+            echo "   Critical findings:"
+            cat trivy-critical.txt
           else
             echo "status=passed" >> $GITHUB_OUTPUT
             echo "✅ Trivy found no critical vulnerabilities."
