@@ -87,6 +87,11 @@ on:
         type: string
         default: ""
 
+      security_scan_mode:
+        type: string
+        default: "legacy"
+        description: "Security scan policy: legacy|enforce|report-only"
+
       # Individual security checks
       cosign:
         type: boolean
@@ -323,6 +328,16 @@ jobs:
               ;;
             *)
               echo "❌ Error: arch must be 'amd64' or 'arm64'"
+              exit 1
+              ;;
+          esac
+
+          # Validate security scan mode
+          case "${{ inputs.security_scan_mode }}" in
+            legacy|enforce|report-only)
+              ;;
+            *)
+              echo "❌ Error: security_scan_mode must be one of 'legacy', 'enforce', or 'report-only'"
               exit 1
               ;;
           esac
@@ -589,36 +604,116 @@ jobs:
           add-cpes-if-none: true
           only-fixed: true
           fail-build: false
-      - name: Grype detailed check
+      - name: Parse Grype scan results
         if: inputs.grype
+        id: grype-results
         run: |
           # Check if the JSON file exists and is not empty
           if [[ ! -f "${{ steps.grype.outputs.json }}" ]] || [[ ! -s "${{ steps.grype.outputs.json }}" ]]; then
             echo "❌ Error: Grype JSON output file is missing or empty"
             echo "   Expected file: ${{ steps.grype.outputs.json }}"
             echo "   This indicates the Grype scan failed or didn't produce output"
+            echo "critical_count=0" >> $GITHUB_OUTPUT
+            echo "status=error" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # Process the JSON file and check for critical vulnerabilities
-          jq -r '.matches[] | select(.vulnerability.severity == "Critical") | "\(.vulnerability.id) \t \(.artifact.name) \(.artifact.version) -> \(.artifact.locations[]?.path // "no-path")"' "${{ steps.grype.outputs.json }}" | tee grype-critical.txt
+          CRITICAL_COUNT=$(jq '[.matches[]? | select((.vulnerability.severity // "") == "Critical")] | length' "${{ steps.grype.outputs.json }}")
+          echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
 
-          if [[ $(wc -l < grype-critical.txt) -gt 0 ]]; then
-            echo "❌ Critical vulnerabilities found in the image. Failing the build."
-            echo "   Vulnerabilities found:"
+          jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[]?.path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+
+          if [[ "$CRITICAL_COUNT" -gt 0 ]]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Grype found $CRITICAL_COUNT critical vulnerabilities."
+            echo "   Critical findings:"
             cat grype-critical.txt
-            exit 1
           else
-            echo "✅ No critical vulnerabilities found in the image."
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Grype found no critical vulnerabilities."
           fi
 
       - name: Run Trivy security scan
         if: inputs.trivy
+        id: trivy-scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ${{ steps.setup.outputs.image_tag }}
-          format: table
+          format: json
+          output: trivy.json
           severity: CRITICAL
+
+      - name: Parse Trivy scan results
+        if: inputs.trivy
+        id: trivy-results
+        shell: bash
+        run: |
+          if [[ ! -f "trivy.json" ]] || [[ ! -s "trivy.json" ]]; then
+            echo "❌ Error: Trivy JSON output file is missing or empty"
+            echo "critical_count=0" >> $GITHUB_OUTPUT
+            echo "status=error" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          CRITICAL_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL")] | length' trivy.json)
+          echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+
+          jq -r '.Results[]? as $r | $r.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL") | "\(.VulnerabilityID)\t\(.PkgName) \(.InstalledVersion // "unknown") -> \($r.Target // "unknown-target")"' trivy.json > trivy-critical.txt
+
+          if [[ "$CRITICAL_COUNT" -gt 0 ]]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Trivy found $CRITICAL_COUNT critical vulnerabilities."
+            echo "   Critical findings:"
+            cat trivy-critical.txt
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Trivy found no critical vulnerabilities."
+          fi
+
+      - name: Enforce security scan policy (legacy)
+        if: inputs.security_scan_mode == 'legacy' && inputs.grype
+        shell: bash
+        run: |
+          GRYPE_CRITICAL="${{ steps.grype-results.outputs.critical_count }}"
+          [[ -z "$GRYPE_CRITICAL" ]] && GRYPE_CRITICAL=0
+
+          if [[ "$GRYPE_CRITICAL" -gt 0 ]]; then
+            echo "❌ Security gate blocked build (legacy mode): Grype found $GRYPE_CRITICAL critical vulnerabilities."
+            exit 1
+          fi
+
+          echo "✅ Security gate passed (legacy mode)."
+
+      - name: Enforce security scan policy (enforce)
+        if: inputs.security_scan_mode == 'enforce'
+        shell: bash
+        run: |
+          FAIL=0
+
+          if [[ "${{ inputs.grype }}" == "true" ]]; then
+            GRYPE_CRITICAL="${{ steps.grype-results.outputs.critical_count }}"
+            [[ -z "$GRYPE_CRITICAL" ]] && GRYPE_CRITICAL=0
+            if [[ "$GRYPE_CRITICAL" -gt 0 ]]; then
+              echo "❌ Grype found $GRYPE_CRITICAL critical vulnerabilities."
+              FAIL=1
+            fi
+          fi
+
+          if [[ "${{ inputs.trivy }}" == "true" ]]; then
+            TRIVY_CRITICAL="${{ steps.trivy-results.outputs.critical_count }}"
+            [[ -z "$TRIVY_CRITICAL" ]] && TRIVY_CRITICAL=0
+            if [[ "$TRIVY_CRITICAL" -gt 0 ]]; then
+              echo "❌ Trivy found $TRIVY_CRITICAL critical vulnerabilities."
+              FAIL=1
+            fi
+          fi
+
+          if [[ "$FAIL" -eq 1 ]]; then
+            echo "❌ Security gate blocked build (enforce mode)."
+            exit 1
+          fi
+
+          echo "✅ Security gate passed (enforce mode)."
 
       - name: Run Trivy SARIF scan
         if: inputs.trivy_sarif
@@ -940,7 +1035,7 @@ jobs:
           done
 
       - name: Generate GitHub summary
-        if: inputs.summary_artifacts
+        if: always() && inputs.summary_artifacts
         shell: bash
         run: |
           echo "## 🏭 Kairos Factory Build Summary" >> $GITHUB_STEP_SUMMARY
@@ -992,20 +1087,60 @@ jobs:
           fi
 
           # Check which security scans were run
-          SECURITY_SCANS=()
-          if [[ "${{ inputs.grype }}" == "true" ]]; then
-            SECURITY_SCANS+=("grype")
-          fi
-          if [[ "${{ inputs.trivy }}" == "true" ]]; then
-            SECURITY_SCANS+=("trivy")
-          fi
+          if [[ "${{ inputs.grype }}" == "true" || "${{ inputs.trivy }}" == "true" ]]; then
+            GRYPE_CRITICAL="${{ steps.grype-results.outputs.critical_count }}"
+            TRIVY_CRITICAL="${{ steps.trivy-results.outputs.critical_count }}"
+            GRYPE_STATUS="${{ steps.grype-results.outputs.status }}"
+            TRIVY_STATUS="${{ steps.trivy-results.outputs.status }}"
+            [[ -z "$GRYPE_CRITICAL" ]] && GRYPE_CRITICAL=0
+            [[ -z "$TRIVY_CRITICAL" ]] && TRIVY_CRITICAL=0
 
-          if [[ ${#SECURITY_SCANS[@]} -gt 0 ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security Scans:**" >> $GITHUB_STEP_SUMMARY
-            for check in "${SECURITY_SCANS[@]}"; do
-              echo "- ✅ $check scan completed" >> $GITHUB_STEP_SUMMARY
-            done
+
+            if [[ "${{ inputs.grype }}" == "true" ]]; then
+              if [[ "$GRYPE_STATUS" == "passed" ]]; then
+                echo "- Grype: ✅ passed ($GRYPE_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+              elif [[ "$GRYPE_STATUS" == "failed" ]]; then
+                echo "- Grype: ❌ failed ($GRYPE_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- Grype: ⚠️ status unknown" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+
+            if [[ "${{ inputs.trivy }}" == "true" ]]; then
+              if [[ "$TRIVY_STATUS" == "passed" ]]; then
+                echo "- Trivy: ✅ passed ($TRIVY_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+              elif [[ "$TRIVY_STATUS" == "failed" ]]; then
+                echo "- Trivy: ❌ failed ($TRIVY_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- Trivy: ⚠️ status unknown" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+
+            echo "- Policy: \`${{ inputs.security_scan_mode }}\`" >> $GITHUB_STEP_SUMMARY
+
+            BLOCKED=false
+            if [[ "${{ inputs.security_scan_mode }}" == "legacy" ]]; then
+              if [[ "${{ inputs.grype }}" == "true" && "$GRYPE_CRITICAL" -gt 0 ]]; then
+                BLOCKED=true
+              fi
+            elif [[ "${{ inputs.security_scan_mode }}" == "enforce" ]]; then
+              if [[ "${{ inputs.grype }}" == "true" && "$GRYPE_CRITICAL" -gt 0 ]]; then
+                BLOCKED=true
+              fi
+              if [[ "${{ inputs.trivy }}" == "true" && "$TRIVY_CRITICAL" -gt 0 ]]; then
+                BLOCKED=true
+              fi
+            fi
+
+            if [[ "$BLOCKED" == "true" ]]; then
+              echo "- Gate: ❌ blocked by policy" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ inputs.security_scan_mode }}" == "report-only" ]]; then
+              echo "- Gate: ✅ report-only (non-blocking)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- Gate: ✅ passed" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
       - name: Upload ISO artifacts
