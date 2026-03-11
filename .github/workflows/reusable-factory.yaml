@@ -621,7 +621,7 @@ jobs:
           CRITICAL_COUNT=$(jq '[.matches[]? | select((.vulnerability.severity // "") == "Critical")] | length' "${{ steps.grype.outputs.json }}")
           echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
 
-          jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[]?.path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+          jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[0].path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
 
           if [[ "$CRITICAL_COUNT" -gt 0 ]]; then
             echo "status=failed" >> $GITHUB_OUTPUT
@@ -679,6 +679,15 @@ jobs:
 
           if [[ "$GRYPE_CRITICAL" -gt 0 ]]; then
             echo "❌ Security gate blocked build (legacy mode): Grype found $GRYPE_CRITICAL critical vulnerabilities."
+            if [[ ! -s grype-critical.txt ]]; then
+              jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[0].path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+            fi
+            if [[ -s grype-critical.txt ]]; then
+              echo "   Grype critical findings:"
+              cat grype-critical.txt
+            else
+              echo "   Grype critical findings unavailable (could not parse details)."
+            fi
             exit 1
           fi
 
@@ -695,6 +704,15 @@ jobs:
             [[ -z "$GRYPE_CRITICAL" ]] && GRYPE_CRITICAL=0
             if [[ "$GRYPE_CRITICAL" -gt 0 ]]; then
               echo "❌ Grype found $GRYPE_CRITICAL critical vulnerabilities."
+              if [[ ! -s grype-critical.txt ]]; then
+                jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[0].path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+              fi
+              if [[ -s grype-critical.txt ]]; then
+                echo "   Grype critical findings:"
+                cat grype-critical.txt
+              else
+                echo "   Grype critical findings unavailable (could not parse details)."
+              fi
               FAIL=1
             fi
           fi
@@ -704,6 +722,15 @@ jobs:
             [[ -z "$TRIVY_CRITICAL" ]] && TRIVY_CRITICAL=0
             if [[ "$TRIVY_CRITICAL" -gt 0 ]]; then
               echo "❌ Trivy found $TRIVY_CRITICAL critical vulnerabilities."
+              if [[ ! -s trivy-critical.txt ]]; then
+                jq -r '.Results[]? as $r | $r.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL") | "\(.VulnerabilityID)\t\(.PkgName) \(.InstalledVersion // "unknown") -> \($r.Target // "unknown-target")"' trivy.json > trivy-critical.txt
+              fi
+              if [[ -s trivy-critical.txt ]]; then
+                echo "   Trivy critical findings:"
+                cat trivy-critical.txt
+              else
+                echo "   Trivy critical findings unavailable (could not parse details)."
+              fi
               FAIL=1
             fi
           fi
@@ -1088,6 +1115,7 @@ jobs:
 
           # Check which security scans were run
           if [[ "${{ inputs.grype }}" == "true" || "${{ inputs.trivy }}" == "true" ]]; then
+            MAX_FINDINGS=50
             GRYPE_CRITICAL="${{ steps.grype-results.outputs.critical_count }}"
             TRIVY_CRITICAL="${{ steps.trivy-results.outputs.critical_count }}"
             GRYPE_STATUS="${{ steps.grype-results.outputs.status }}"
@@ -1103,6 +1131,19 @@ jobs:
                 echo "- Grype: ✅ passed ($GRYPE_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
               elif [[ "$GRYPE_STATUS" == "failed" ]]; then
                 echo "- Grype: ❌ failed ($GRYPE_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+                if [[ "$GRYPE_CRITICAL" -gt 0 && ! -s grype-critical.txt ]]; then
+                  jq -r '.matches[]? | select((.vulnerability.severity // "") == "Critical") | "\(.vulnerability.id)\t\(.artifact.name) \(.artifact.version) -> \(.artifact.locations[0].path // "no-path")"' "${{ steps.grype.outputs.json }}" > grype-critical.txt
+                fi
+                if [[ -s grype-critical.txt ]]; then
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>Grype critical findings (up to $MAX_FINDINGS)</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+                  awk -v max="$MAX_FINDINGS" 'NR <= max { print } NR == max + 1 { print "... truncated ..." }' grype-critical.txt >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                fi
               else
                 echo "- Grype: ⚠️ status unknown" >> $GITHUB_STEP_SUMMARY
               fi
@@ -1113,6 +1154,19 @@ jobs:
                 echo "- Trivy: ✅ passed ($TRIVY_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
               elif [[ "$TRIVY_STATUS" == "failed" ]]; then
                 echo "- Trivy: ❌ failed ($TRIVY_CRITICAL critical)" >> $GITHUB_STEP_SUMMARY
+                if [[ "$TRIVY_CRITICAL" -gt 0 && ! -s trivy-critical.txt ]]; then
+                  jq -r '.Results[]? as $r | $r.Vulnerabilities[]? | select((.Severity // "") == "CRITICAL") | "\(.VulnerabilityID)\t\(.PkgName) \(.InstalledVersion // "unknown") -> \($r.Target // "unknown-target")"' trivy.json > trivy-critical.txt
+                fi
+                if [[ -s trivy-critical.txt ]]; then
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>Trivy critical findings (up to $MAX_FINDINGS)</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+                  awk -v max="$MAX_FINDINGS" 'NR <= max { print } NR == max + 1 { print "... truncated ..." }' trivy-critical.txt >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                fi
               else
                 echo "- Trivy: ⚠️ status unknown" >> $GITHUB_STEP_SUMMARY
               fi
