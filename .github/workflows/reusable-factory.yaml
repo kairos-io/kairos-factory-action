@@ -1094,7 +1094,15 @@ jobs:
           shopt -u nullglob
 
           if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then
-            echo "❌ No release artifacts found to upload"
+            echo "❌ No release artifacts found to upload."
+            echo "   Expected at least one file matching:"
+            echo "   - artifacts/*.iso"
+            echo "   - artifacts/*.iso.sha256"
+            echo "   - artifacts/*.iso.sha256.sig"
+            echo "   - artifacts/*.iso.sha256.bundle"
+            echo "   - artifacts/*.iso.sha256.pem"
+            echo "   Current artifacts directory contents:"
+            ls -la artifacts || echo "   (artifacts directory not found)"
             exit 1
           fi
 
@@ -1106,7 +1114,19 @@ jobs:
           fi
 
           echo "⬆️ Uploading release artifacts"
-          gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          until gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber; do
+            if [[ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]]; then
+              echo "❌ Failed to upload release artifacts after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            BACKOFF=$((ATTEMPT * 5))
+            echo "⚠️ Upload failed (attempt $ATTEMPT/$MAX_ATTEMPTS). Retrying in ${BACKOFF}s..."
+            sleep "$BACKOFF"
+            ATTEMPT=$((ATTEMPT + 1))
+          done
       - name: List Release Artifacts
         if: inputs.list_release_artifacts
         shell: bash
