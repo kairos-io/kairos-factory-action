@@ -1070,14 +1070,43 @@ jobs:
           fi
       - name: GitHub Release
         if: inputs.release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-        with:
-          files: |
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+
+          if [[ -z "$TAG" ]]; then
+            echo "❌ Could not determine tag from GITHUB_REF_NAME"
+            exit 1
+          fi
+
+          shopt -s nullglob
+          RELEASE_FILES=(
             artifacts/*.iso
             artifacts/*.iso.sha256
             artifacts/*.iso.sha256.sig
             artifacts/*.iso.sha256.bundle
             artifacts/*.iso.sha256.pem
+          )
+          shopt -u nullglob
+
+          if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then
+            echo "❌ No release artifacts found to upload"
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "ℹ️ Release $TAG already exists, uploading artifacts"
+          else
+            echo "📦 Creating release $TAG (must already exist as a tag)"
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "Release $TAG"
+          fi
+
+          echo "⬆️ Uploading release artifacts"
+          gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber
       - name: List Release Artifacts
         if: inputs.list_release_artifacts
         shell: bash
