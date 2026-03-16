@@ -114,6 +114,17 @@ on:
         type: boolean
         default: false
 
+      # Scanner configs (optional)
+      grype_config:
+        type: string
+        required: false
+        description: "Path to Grype config file (defaults to .grype.yaml in repo root if not provided)"
+
+      trivy_config:
+        type: string
+        required: false
+        description: "Path to Trivy config file (defaults to .trivy.yaml in repo root if not provided)"
+
       # Publishing
       registry_domain:
         type: string
@@ -593,6 +604,20 @@ jobs:
             TRUSTED_BOOT=${{ inputs.trusted_boot }}
             VERSION=${{ steps.setup.outputs.version }}
 
+      - name: Setup Grype config
+        if: inputs.grype
+        run: |
+          GRYPE_CONFIG_PATH="${{ inputs.grype_config }}"
+          if [[ -z "$GRYPE_CONFIG_PATH" ]]; then
+            GRYPE_CONFIG_PATH=".grype.yaml"
+          fi
+          if [[ -f "$GRYPE_CONFIG_PATH" ]]; then
+            echo "📄 Using Grype config: $GRYPE_CONFIG_PATH"
+            cp "$GRYPE_CONFIG_PATH" .grype.yaml
+          else
+            echo "ℹ️ No Grype config file found at $GRYPE_CONFIG_PATH, using defaults"
+          fi
+
       - name: Run Grype security scan
         if: inputs.grype
         id: grype
@@ -642,6 +667,7 @@ jobs:
           format: json
           output: trivy.json
           severity: CRITICAL
+          trivy-config: ${{ inputs.trivy_config || '.trivy.yaml' }}
 
       - name: Parse Trivy scan results
         if: inputs.trivy
@@ -751,6 +777,21 @@ jobs:
           output: trivy.sarif
           severity: CRITICAL
           limit-severities-for-sarif: true
+          trivy-config: ${{ inputs.trivy_config || '.trivy.yaml' }}
+
+      - name: Setup Grype SARIF config
+        if: inputs.grype_sarif
+        run: |
+          GRYPE_CONFIG_PATH="${{ inputs.grype_config }}"
+          if [[ -z "$GRYPE_CONFIG_PATH" ]]; then
+            GRYPE_CONFIG_PATH=".grype.yaml"
+          fi
+          if [[ -f "$GRYPE_CONFIG_PATH" ]]; then
+            echo "📄 Using Grype config: $GRYPE_CONFIG_PATH"
+            cp "$GRYPE_CONFIG_PATH" .grype.yaml
+          else
+            echo "ℹ️ No Grype config file found at $GRYPE_CONFIG_PATH, using defaults"
+          fi
 
       - name: Generate Grype SARIF
         if: inputs.grype_sarif
