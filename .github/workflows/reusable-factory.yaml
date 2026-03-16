@@ -114,6 +114,17 @@ on:
         type: boolean
         default: false
 
+      # Scanner configs (optional)
+      grype_config:
+        type: string
+        required: false
+        description: "Path to Grype config file (defaults to .grype.yaml in repo root if not provided)"
+
+      trivy_config:
+        type: string
+        required: false
+        description: "Path to Trivy config file (defaults to .trivy.yaml in repo root if not provided)"
+
       # Publishing
       registry_domain:
         type: string
@@ -593,6 +604,21 @@ jobs:
             TRUSTED_BOOT=${{ inputs.trusted_boot }}
             VERSION=${{ steps.setup.outputs.version }}
 
+      - name: Check for Grype config
+        if: inputs.grype || inputs.grype_sarif
+        id: grype-config
+        run: |
+          if [[ -n "${{ inputs.grype_config }}" && -f "${{ inputs.grype_config }}" ]]; then
+            echo "📄 Using Grype config: ${{ inputs.grype_config }}"
+            echo "path=${{ inputs.grype_config }}" >> $GITHUB_OUTPUT
+          elif [[ -f ".grype.yaml" ]]; then
+            echo "📄 Using Grype config: .grype.yaml"
+            echo "path=.grype.yaml" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ No Grype config file found, using defaults"
+            echo "path=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Grype security scan
         if: inputs.grype
         id: grype
@@ -604,6 +630,7 @@ jobs:
           add-cpes-if-none: true
           only-fixed: true
           fail-build: false
+          config: ${{ steps.grype-config.outputs.path }}
       - name: Parse Grype scan results
         if: inputs.grype
         id: grype-results
@@ -642,6 +669,7 @@ jobs:
           format: json
           output: trivy.json
           severity: CRITICAL
+          trivy-config: ${{ inputs.trivy_config || '.trivy.yaml' }}
 
       - name: Parse Trivy scan results
         if: inputs.trivy
@@ -751,6 +779,7 @@ jobs:
           output: trivy.sarif
           severity: CRITICAL
           limit-severities-for-sarif: true
+          trivy-config: ${{ inputs.trivy_config || '.trivy.yaml' }}
 
       - name: Generate Grype SARIF
         if: inputs.grype_sarif
@@ -762,6 +791,7 @@ jobs:
           severity-cutoff: critical
           add-cpes-if-none: true
           only-fixed: true
+          config: ${{ steps.grype-config.outputs.path }}
 
       - name: Filter Grype SARIF to critical
         if: inputs.grype_sarif
