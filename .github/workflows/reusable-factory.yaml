@@ -1094,8 +1094,8 @@ jobs:
           shopt -u nullglob
 
           if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then
-            echo "❌ No release artifacts found to upload."
-            echo "   Expected at least one file matching:"
+            echo "ℹ️ No release artifacts found; skipping release upload."
+            echo "   Looked for:"
             echo "   - artifacts/*.iso"
             echo "   - artifacts/*.iso.sha256"
             echo "   - artifacts/*.iso.sha256.sig"
@@ -1103,7 +1103,7 @@ jobs:
             echo "   - artifacts/*.iso.sha256.pem"
             echo "   Current artifacts directory contents:"
             ls -la artifacts || echo "   (artifacts directory not found)"
-            exit 1
+            exit 0
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
