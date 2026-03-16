@@ -1070,14 +1070,63 @@ jobs:
           fi
       - name: GitHub Release
         if: inputs.release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-        with:
-          files: |
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+
+          if [[ -z "$TAG" ]]; then
+            echo "❌ Could not determine tag from GITHUB_REF_NAME"
+            exit 1
+          fi
+
+          shopt -s nullglob
+          RELEASE_FILES=(
             artifacts/*.iso
             artifacts/*.iso.sha256
             artifacts/*.iso.sha256.sig
             artifacts/*.iso.sha256.bundle
             artifacts/*.iso.sha256.pem
+          )
+          shopt -u nullglob
+
+          if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then
+            echo "❌ No release artifacts found to upload."
+            echo "   Expected at least one file matching:"
+            echo "   - artifacts/*.iso"
+            echo "   - artifacts/*.iso.sha256"
+            echo "   - artifacts/*.iso.sha256.sig"
+            echo "   - artifacts/*.iso.sha256.bundle"
+            echo "   - artifacts/*.iso.sha256.pem"
+            echo "   Current artifacts directory contents:"
+            ls -la artifacts || echo "   (artifacts directory not found)"
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "ℹ️ Release $TAG already exists, uploading artifacts"
+          else
+            echo "📦 Creating release $TAG (must already exist as a tag)"
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "Release $TAG"
+          fi
+
+          echo "⬆️ Uploading release artifacts"
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          until gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber; do
+            if [[ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]]; then
+              echo "❌ Failed to upload release artifacts after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            BACKOFF=$((ATTEMPT * 5))
+            echo "⚠️ Upload failed (attempt $ATTEMPT/$MAX_ATTEMPTS). Retrying in ${BACKOFF}s..."
+            sleep "$BACKOFF"
+            ATTEMPT=$((ATTEMPT + 1))
+          done
       - name: List Release Artifacts
         if: inputs.list_release_artifacts
         shell: bash
