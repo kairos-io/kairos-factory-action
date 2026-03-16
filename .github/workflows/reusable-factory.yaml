@@ -611,9 +611,11 @@ jobs:
           if [[ -z "$GRYPE_CONFIG_PATH" ]]; then
             GRYPE_CONFIG_PATH=".grype.yaml"
           fi
-          if [[ -f "$GRYPE_CONFIG_PATH" ]]; then
+          if [[ -f "$GRYPE_CONFIG_PATH" && "$GRYPE_CONFIG_PATH" != ".grype.yaml" ]]; then
             echo "📄 Using Grype config: $GRYPE_CONFIG_PATH"
             cp "$GRYPE_CONFIG_PATH" .grype.yaml
+          elif [[ -f ".grype.yaml" ]]; then
+            echo "📄 Using Grype config: .grype.yaml"
           else
             echo "ℹ️ No Grype config file found at $GRYPE_CONFIG_PATH, using defaults"
           fi
@@ -786,9 +788,11 @@ jobs:
           if [[ -z "$GRYPE_CONFIG_PATH" ]]; then
             GRYPE_CONFIG_PATH=".grype.yaml"
           fi
-          if [[ -f "$GRYPE_CONFIG_PATH" ]]; then
+          if [[ -f "$GRYPE_CONFIG_PATH" && "$GRYPE_CONFIG_PATH" != ".grype.yaml" ]]; then
             echo "📄 Using Grype config: $GRYPE_CONFIG_PATH"
             cp "$GRYPE_CONFIG_PATH" .grype.yaml
+          elif [[ -f ".grype.yaml" ]]; then
+            echo "📄 Using Grype config: .grype.yaml"
           else
             echo "ℹ️ No Grype config file found at $GRYPE_CONFIG_PATH, using defaults"
           fi
