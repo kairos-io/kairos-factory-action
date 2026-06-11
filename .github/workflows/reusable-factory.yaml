@@ -113,7 +113,7 @@ on:
       grype_sarif_fail_build:
         type: boolean
         default: true
-        description: "Whether the Grype SARIF generation step should fail the build when vulnerabilities at/above the severity cutoff are found. Set to false to leave build gating entirely to security_scan_mode, so SARIF only reports to the GitHub Security tab without failing the build."
+        description: "Whether the Grype SARIF scan step should fail the job when vulnerabilities at/above the severity cutoff are found. Set to false to prevent SARIF generation from failing the job; build gating may still occur via security_scan_mode when grype/trivy scans are enabled."
 
       trivy_sarif:
         type: boolean
