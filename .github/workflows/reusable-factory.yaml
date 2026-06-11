@@ -110,6 +110,11 @@ on:
         type: boolean
         default: false
 
+      grype_sarif_fail_build:
+        type: boolean
+        default: true
+        description: "Whether the Grype SARIF generation step should fail the build when vulnerabilities at/above the severity cutoff are found. Set to false to leave build gating entirely to security_scan_mode, so SARIF only reports to the GitHub Security tab without failing the build."
+
       trivy_sarif:
         type: boolean
         default: false
@@ -791,6 +796,7 @@ jobs:
           severity-cutoff: critical
           add-cpes-if-none: true
           only-fixed: true
+          fail-build: ${{ inputs.grype_sarif_fail_build }}
           config: ${{ steps.grype-config.outputs.path }}
 
       - name: Filter Grype SARIF to critical
