@@ -66,6 +66,7 @@ All inputs below come from `.github/workflows/reusable-factory.yaml`.
 | `grype` | boolean | no | `false` | Run Grype scan against built image. |
 | `trivy` | boolean | no | `false` | Run Trivy scan against built image. |
 | `grype_sarif` | boolean | no | `false` | Generate, filter, and upload Grype SARIF report. |
+| `grype_sarif_fail_build` | boolean | no | `true` | Whether the Grype SARIF scan step fails the job on findings at/above the severity cutoff. Set to `false` to prevent SARIF generation from failing the job; the build may still fail due to `security_scan_mode` when `grype`/`trivy` scans are enabled. |
 | `trivy_sarif` | boolean | no | `false` | Generate, filter, and upload Trivy SARIF report. |
 | `registry_domain` | string | no | - | Registry domain used for login/push (example: `ghcr.io`). |
 | `registry_namespace` | string | no | - | Registry namespace/organization. |
