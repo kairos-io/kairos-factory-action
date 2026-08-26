@@ -1,3 +1,68 @@
+> ## This repository has been archived pending migration into kairos-io/kairos
+>
+> `kairos-factory-action` has been absorbed into the
+> [kairos-io/kairos](https://github.com/kairos-io/kairos) monorepo as
+> part of the plan tracked in
+> [kairos-io/kairos#4367](https://github.com/kairos-io/kairos/issues/4367).
+> Every existing tag and commit here remains resolvable, so `uses:`
+> lines that already pin at a SHA or tag from this repo keep working
+> for as long as GitHub keeps archived repositories available (i.e.
+> indefinitely). What stops is *new* releases: no new tags or commits
+> land here.
+>
+> New development happens at
+> [github.com/kairos-io/kairos/tree/master/.github/workflows/reusable-factory.yaml](https://github.com/kairos-io/kairos/blob/master/.github/workflows/reusable-factory.yaml).
+> Reusable workflows have to live at `.github/workflows/` of the
+> repo root (GitHub does not accept them in subdirectories), so the
+> absorbed file sits alongside the monorepo's own `pr.yaml`,
+> `master.yaml`, `release.yaml`, etc. -- not under a `factory-action/`
+> subdir like the other absorbed components.
+>
+> ### To pick up newer factory-action code
+>
+> Rewrite the `uses:` lines in your workflow files:
+>
+> ```
+> find .github/workflows -type f \( -name '*.yaml' -o -name '*.yml' \) -exec sed -i \
+>   's|kairos-io/kairos-factory-action/\.github/workflows/|kairos-io/kairos/.github/workflows/|g' {} +
+> ```
+>
+> Then repin at the ref you want. Three patterns, all valid:
+>
+> 1. **SHA pin** (matches the pattern the archived tags used, and how
+>    kairos-io itself pins external actions):
+>    ```yaml
+>    uses: kairos-io/kairos/.github/workflows/reusable-factory.yaml@<sha>  # v?.?.?
+>    ```
+>    Bump the SHA (via Renovate or by hand) whenever you want to pick
+>    up a fix. This is the recommended pattern -- no release cadence
+>    dependency.
+>
+> 2. **Branch pin** (always latest, non-reproducible builds):
+>    ```yaml
+>    uses: kairos-io/kairos/.github/workflows/reusable-factory.yaml@master
+>    ```
+>
+> 3. **Tag pin** (tied to release cadence):
+>    ```yaml
+>    uses: kairos-io/kairos/.github/workflows/reusable-factory.yaml@vX.Y.Z
+>    ```
+>    Every `kairos-io/kairos` release (`v4.3.0`, `v4.3.1`, ...) now
+>    versions the factory-action too, at the same tag. If a
+>    factory-action fix lands between Kairos releases and consumers on
+>    tag pins need it before the next full release, the monorepo can
+>    cut an ad-hoc `factory-action-vX.Y.Z` tag on the fix commit and
+>    consumers can pin at that tag stream directly.
+>
+> ### Renovate note
+>
+> Consumers whose Renovate rules watched `kairos-io/kairos-factory-action`
+> for `uses:` bumps will silently stop getting bumps once this repo is
+> archived (no new tags land here). Repoint the datasource at
+> `kairos-io/kairos` when you rewrite the `uses:` lines.
+
+---
+
 # Kairos Factory Action
 
 A GitHub Actions reusable workflow for building Kairos images and artifacts, with optional security scanning, signing, publishing, and release automation.
